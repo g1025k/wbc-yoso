@@ -34,7 +34,7 @@ body{background:var(--navy);color:var(--white);font-family:'Noto Sans JP',sans-s
 .tab-flag{font-size:18px;display:block;margin-bottom:3px;}
 .tab-date{font-size:9px;color:var(--muted);margin-bottom:2px;}
 .tab.active .tab-date{color:rgba(255,255,255,.65);}
-.tab-vs{font-size:11px;font-weight:700;white-space:nowrap;}
+.tab-vs{font-size:10px;font-weight:700;white-space:normal;word-break:keep-all;line-height:1.3;}
 .match-card{margin:0 16px 16px;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:20px;position:relative;overflow:hidden;backdrop-filter:blur(8px);}
 .match-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold),var(--red),var(--gold));}
 .match-info{display:flex;align-items:center;justify-content:space-between;gap:12px;}
@@ -103,7 +103,7 @@ body{background:var(--navy);color:var(--white);font-family:'Noto Sans JP',sans-s
     <div class="hero-overlay"></div>
     <div class="hero-content">
       <div class="header-badge">⚾ WBC 2026 侍ジャパン</div>
-      <div class="header-title">スコア予想<br>みんなで対決！</div>
+      <div class="header-title">スコア予想<br>スコアを当ててアイコンゲット！</div>
       <div class="header-sub">SCORE PREDICTION BATTLE</div>
     </div>
   </div>
@@ -137,7 +137,7 @@ const GAMES=[
   {id:'g3',date:'3/10(火)',time:'19:00',opp:'チェコ',flag:'🇨🇿',sub:'CZECH'},
 ];
 const PASSWORD='maru';
-let currentGame='g1',isAdmin=false;
+let currentGame='g0',isAdmin=false;
 
 document.getElementById('heroImg').src=IMG_B64;
 
@@ -232,7 +232,7 @@ function renderTabs(){
     <div class="tab ${g.id===currentGame?'active':''}" onclick="switchGame('${g.id}')">
       <span class="tab-flag">${g.flag}</span>
       <div class="tab-date">${g.date}</div>
-      <div class="tab-vs">vs ${g.opp}</div>
+      <div class="tab-vs">vs ${g.opp.length>6?g.opp.slice(0,5)+'…':g.opp}</div>
     </div>`).join('');
 }
 function renderMatchCard(){
