@@ -532,9 +532,7 @@ function renderList(preds){
     const isWinner=p.is_winner;
     const winnerBadge=isWinner?'<span class="winner-badge">👑 正解！</span>':'';
     const crownBtn=isAdmin?`<button class="crown-btn ${isWinner?'crowned':''}" onclick="toggleCrown('${p.id}',${isWinner})" title="${isWinner?'王冠を外す':'王冠をつける'}">${isWinner?'👑':'☆'}</button>`:'';
-    const myName=localStorage.getItem('wbc_username')||'';
-    const isOwn=myName&&myName===p.name;
-    const delBtn=(isAdmin||isOwn)?`<button class="delete-btn" onclick="deletePred('${p.id}')" title="削除">✕</button>`:'';
+    const delBtn=isAdmin?`<button class="delete-btn" onclick="deletePred('${p.id}')" title="削除">✕</button>`:'';
     const avatar=isWinner?`<div class="winner-crown">👑</div>`:`<div class="pred-avatar">${init}</div>`;
     return `<div class="pred-item ${isWinner?'winner':''}">
       ${avatar}
