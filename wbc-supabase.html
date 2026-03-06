@@ -98,6 +98,8 @@ body{background:var(--navy);color:var(--white);font-family:'Noto Sans JP',sans-s
 .winner-crown{font-size:28px;animation:crownPop .4s cubic-bezier(.34,1.56,.64,1);}
 @keyframes crownPop{from{transform:scale(0) rotate(-20deg);}to{transform:scale(1) rotate(0deg);}}
 .empty-pred{text-align:center;padding:32px;color:var(--muted);font-size:13px;opacity:.7;}
+.schedule-btn{display:flex;align-items:center;justify-content:center;gap:8px;margin:0 16px 20px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:13px;color:var(--white);font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-decoration:none;transition:all .2s;letter-spacing:.05em;}
+.schedule-btn:active{opacity:.7;background:rgba(255,255,255,.1);}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:linear-gradient(135deg,var(--gold),var(--gold2));color:var(--navy);font-weight:900;font-size:13px;padding:12px 24px;border-radius:100px;z-index:999;transition:transform .35s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;box-shadow:0 8px 24px rgba(245,194,0,.4);}
 .toast.show{transform:translateX(-50%) translateY(0);}
 .toast.error{background:linear-gradient(135deg,var(--red),#8a0015);color:#fff;box-shadow:0 8px 24px rgba(204,34,51,.4);}
@@ -164,6 +166,10 @@ body{background:var(--navy);color:var(--white);font-family:'Noto Sans JP',sans-s
     <div class="auth-status" id="authStatus">👀 観覧モード</div>
     <button class="auth-btn" id="authBtn" onclick="toggleAuth()">管理者ログイン</button>
   </div>
+  <a class="schedule-btn" href="https://www.japan-baseball.jp/jp/games/wbc2026/schedule/" target="_blank" rel="noopener">
+    ⚾ 侍ジャパン 公式スケジュール・結果を確認
+    <span style="font-size:11px;opacity:.6;">↗</span>
+  </a>
   <div class="game-tabs" id="gameTabs"></div>
   <div class="match-card" id="matchCard"></div>
   <div class="pred-count" id="predCount"></div>
