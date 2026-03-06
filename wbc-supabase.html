@@ -266,25 +266,45 @@ function renderAuthBar(){
   b.className='auth-btn'+(isAdmin?' logout':'');
 }
 
-// ── Deadline Badge ──
+// ── Deadline Badge & Countdown ──
+let countdownTimer=null;
+
 function renderDeadlineBadge(){
   const g=GAMES.find(x=>x.id===currentGame);
-  const open=isOpen(g);
   const el=document.getElementById('predCount');
   el.innerHTML='';
-  // insert badge before predCount
   let badge=document.getElementById('deadlineBadge');
   if(!badge){
     badge=document.createElement('div');
     badge.id='deadlineBadge';
     el.parentNode.insertBefore(badge,el);
   }
-  badge.className='deadline-badge'+(open?' open':'');
-  const dh = g.deadline.getHours().toString().padStart(2,'0');
-  const dm = g.deadline.getMinutes().toString().padStart(2,'0');
-  badge.innerHTML=open
-    ?`⏰ 予想受付中！（${g.date} ${dh}:${dm}まで）`
-    :`🔒 ${g.date}の予想は締め切りました`;
+  if(countdownTimer){clearInterval(countdownTimer);countdownTimer=null;}
+
+  function updateBadge(){
+    const now=new Date();
+    const diff=g.deadline-now;
+    if(diff<=0){
+      badge.className='deadline-badge';
+      badge.innerHTML=`🔒 ${g.date}の予想は締め切りました`;
+      if(countdownTimer){clearInterval(countdownTimer);countdownTimer=null;}
+      renderFormArea();
+      return;
+    }
+    const hours=Math.floor(diff/1000/60/60);
+    const mins=Math.floor((diff/1000/60)%60);
+    const secs=Math.floor((diff/1000)%60);
+    badge.className='deadline-badge open';
+    if(hours>0){
+      badge.innerHTML=`⏰ 締め切りまで あと <b>${hours}時間${mins}分</b>`;
+    } else if(mins>0){
+      badge.innerHTML=`⚡ 締め切りまで あと <b>${mins}分${secs}秒</b>`;
+    } else {
+      badge.innerHTML=`🔥 締め切りまで あと <b>${secs}秒！</b>`;
+    }
+  }
+  updateBadge();
+  countdownTimer=setInterval(updateBadge,1000);
 }
 
 // ── Tabs ──
