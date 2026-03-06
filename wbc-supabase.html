@@ -200,9 +200,9 @@ const SUPABASE_ANON_KEY = 'sb_publishable_UXpvIdqk2XCWI0Dxxs33Ow_Zx-q3760';
 // =============================================
 
 const GAMES=[
-  {id:'g0',date:'3/6(金)',time:'19:00',opp:'チャイニーズ・タイペイ',flag:'🇹🇼',sub:'CHINESE TAIPEI', deadline: new Date('2026-03-06T22:00:00+09:00')},
-  {id:'g1',date:'3/7(土)',time:'19:00',opp:'韓国',flag:'🇰🇷',sub:'KOREA', deadline: new Date('2026-03-07T22:00:00+09:00')},
-  {id:'g2',date:'3/8(日)',time:'19:00',opp:'オーストラリア',flag:'🇦🇺',sub:'AUSTRALIA', deadline: new Date('2026-03-08T22:00:00+09:00')},
+  {id:'g0',date:'3/6(金)',time:'19:00',opp:'チャイニーズ・タイペイ',flag:'🇹🇼',sub:'CHINESE TAIPEI', open: new Date('2026-03-01T00:00:00+09:00'), deadline: new Date('2026-03-06T22:00:00+09:00')},
+  {id:'g1',date:'3/7(土)',time:'19:00',opp:'韓国',flag:'🇰🇷',sub:'KOREA', open: new Date('2026-03-06T22:01:00+09:00'), deadline: new Date('2026-03-07T22:00:00+09:00')},
+  {id:'g2',date:'3/8(日)',time:'19:00',opp:'オーストラリア',flag:'🇦🇺',sub:'AUSTRALIA', open: new Date('2026-03-07T22:01:00+09:00'), deadline: new Date('2026-03-08T22:00:00+09:00')},
 ];
 const PASSWORD='maru';
 let currentGame='g0',isAdmin=false;
@@ -221,7 +221,7 @@ async function sbFetch(path,opts={}){
 }
 
 // ── Deadline check ──
-function isOpen(game){return new Date()<game.deadline;}
+function isOpen(game){const now=new Date();return now>=game.open&&now<game.deadline;}
 
 // ── Load ──
 async function loadPredictions(){
@@ -290,6 +290,17 @@ function renderDeadlineBadge(){
   function updateBadge(){
     const now=new Date();
     const diff=g.deadline-now;
+    const now=new Date();
+    if(now<g.open){
+      // 受付前
+      const diffOpen=g.open-now;
+      const oh=Math.floor(diffOpen/1000/60/60);
+      const om=Math.floor((diffOpen/1000/60)%60);
+      badge.className='deadline-badge';
+      badge.innerHTML=`⏳ 受付開始まで あと <b>${oh>0?oh+'時間':''} ${om}分</b>`;
+      renderFormArea();
+      return;
+    }
     if(diff<=0){
       badge.className='deadline-badge';
       badge.innerHTML=`🔒 ${g.date}の予想は締め切りました`;
