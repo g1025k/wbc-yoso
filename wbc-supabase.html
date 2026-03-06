@@ -597,7 +597,7 @@ async function renderRanking(){
 
 // ── CRUD ──
 async function addPrediction(){
-  const name=document.getElementById('nameInp')?.value.trim();
+  const name=(document.getElementById('nameInp')?.value||'').trim().replace(/^[\s　]+|[\s　]+$/g,'');
   const jp=document.getElementById('scoreJp')?.value;
   const opp=document.getElementById('scoreOpp')?.value;
   if(!name){showToastError('名前を入力してください！');return;}
