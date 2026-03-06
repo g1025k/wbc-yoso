@@ -197,15 +197,14 @@ const IMG_B64='data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0Z
 // =============================================
 const SUPABASE_URL = 'https://vzgeoctqpcdymzxcpyku.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_UXpvIdqk2XCWI0Dxxs33Ow_Zx-q3760';
-// =============================================
 
 const GAMES=[
-  {id:'g0',date:'3/6(金)',time:'19:00',opp:'チャイニーズ・タイペイ',flag:'🇹🇼',sub:'CHINESE TAIPEI', open: new Date('2026-03-01T00:00:00+09:00'), deadline: new Date('2026-03-06T22:00:00+09:00')},
-  {id:'g1',date:'3/7(土)',time:'19:00',opp:'韓国',flag:'🇰🇷',sub:'KOREA', open: new Date('2026-03-06T22:01:00+09:00'), deadline: new Date('2026-03-07T22:00:00+09:00')},
-  {id:'g2',date:'3/8(日)',time:'19:00',opp:'オーストラリア',flag:'🇦🇺',sub:'AUSTRALIA', open: new Date('2026-03-07T22:01:00+09:00'), deadline: new Date('2026-03-08T22:00:00+09:00')},
+  {id:'g0',date:'3/6(金)',time:'19:00',opp:'チャイニーズ・タイペイ',flag:'🇹🇼',sub:'CHINESE TAIPEI', open:new Date('2026-03-01T00:00:00+09:00'), deadline:new Date('2026-03-06T22:00:00+09:00')},
+  {id:'g1',date:'3/7(土)',time:'19:00',opp:'韓国',flag:'🇰🇷',sub:'KOREA', open:new Date('2026-03-06T22:01:00+09:00'), deadline:new Date('2026-03-07T22:00:00+09:00')},
+  {id:'g2',date:'3/8(日)',time:'19:00',opp:'オーストラリア',flag:'🇦🇺',sub:'AUSTRALIA', open:new Date('2026-03-07T22:01:00+09:00'), deadline:new Date('2026-03-08T22:00:00+09:00')},
 ];
 const PASSWORD='maru';
-let currentGame='g0',isAdmin=false;
+let currentGame='g0', isAdmin=false, countdownTimer=null;
 
 document.getElementById('heroImg').src=IMG_B64;
 
@@ -220,34 +219,11 @@ async function sbFetch(path,opts={}){
   return ct.includes('json')?res.json():null;
 }
 
-// ── Deadline check ──
+// ── Helpers ──
 function isOpen(game){const now=new Date();return now>=game.open&&now<game.deadline;}
-
-// ── Load ──
-async function loadPredictions(){
-  setLoading(true);
-  try{
-    const rows=await sbFetch(`predictions?game_id=eq.${currentGame}&order=created_at.asc`);
-    renderDeadlineBadge();
-    renderActualScoreArea(rows||[]);
-    renderStats(rows||[]);
-    renderList(rows||[]);
-    renderPredCount(rows?rows.length:0);
-    await renderRanking();
-  }catch(e){
-    console.error(e);
-    showToastError('データの読み込みに失敗しました');
-    renderList([]);
-  }
-  setLoading(false);
-}
-
-async function loadActualScore(){
-  try{
-    const rows=await sbFetch(`actual_scores?game_id=eq.${currentGame}`);
-    return rows&&rows.length>0?rows[0]:null;
-  }catch(e){return null;}
-}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function saveName(v){if(v)localStorage.setItem('wbc_username',v);}
+function restoreName(){const s=localStorage.getItem('wbc_username');const i=document.getElementById('nameInp');if(s&&i)i.value=s;}
 
 // ── Auth ──
 function toggleAuth(){
@@ -262,8 +238,6 @@ function loginFromPrompt(){
   if(pw===PASSWORD){isAdmin=true;renderAuthBar();renderFormArea();loadPredictions();showToast('🔓 管理者でログインしました！');}
   else showToastError('パスワードが違います');
 }
-
-// ── Render Auth ──
 function renderAuthBar(){
   document.getElementById('authStatus').textContent=isAdmin?'🔑 管理者モード':'👀 観覧モード';
   document.getElementById('authStatus').className='auth-status'+(isAdmin?' admin':'');
@@ -272,56 +246,41 @@ function renderAuthBar(){
   b.className='auth-btn'+(isAdmin?' logout':'');
 }
 
-// ── Deadline Badge & Countdown ──
-let countdownTimer=null;
-
+// ── Countdown Badge ──
 function renderDeadlineBadge(){
   const g=GAMES.find(x=>x.id===currentGame);
   const el=document.getElementById('predCount');
   el.innerHTML='';
   let badge=document.getElementById('deadlineBadge');
-  if(!badge){
-    badge=document.createElement('div');
-    badge.id='deadlineBadge';
-    el.parentNode.insertBefore(badge,el);
-  }
+  if(!badge){badge=document.createElement('div');badge.id='deadlineBadge';el.parentNode.insertBefore(badge,el);}
   if(countdownTimer){clearInterval(countdownTimer);countdownTimer=null;}
-
-  function updateBadge(){
+  function tick(){
     const now=new Date();
     const diff=g.deadline-now;
-    const now=new Date();
     if(now<g.open){
-      // 受付前
       const diffOpen=g.open-now;
       const oh=Math.floor(diffOpen/1000/60/60);
       const om=Math.floor((diffOpen/1000/60)%60);
       badge.className='deadline-badge';
-      badge.innerHTML=`⏳ 受付開始まで あと <b>${oh>0?oh+'時間':''} ${om}分</b>`;
-      renderFormArea();
-      return;
+      badge.innerHTML=`⏳ ${g.date}の予想はまだ始まっていません（あと <b>${oh>0?oh+'時間':''}${om}分</b>で受付開始）`;
+      renderFormArea();return;
     }
     if(diff<=0){
       badge.className='deadline-badge';
       badge.innerHTML=`🔒 ${g.date}の予想は締め切りました`;
       if(countdownTimer){clearInterval(countdownTimer);countdownTimer=null;}
-      renderFormArea();
-      return;
+      renderFormArea();return;
     }
     const hours=Math.floor(diff/1000/60/60);
     const mins=Math.floor((diff/1000/60)%60);
     const secs=Math.floor((diff/1000)%60);
     badge.className='deadline-badge open';
-    if(hours>0){
-      badge.innerHTML=`⏰ 締め切りまで あと <b>${hours}時間${mins}分</b>`;
-    } else if(mins>0){
-      badge.innerHTML=`⚡ 締め切りまで あと <b>${mins}分${secs}秒</b>`;
-    } else {
-      badge.innerHTML=`🔥 締め切りまで あと <b>${secs}秒！</b>`;
-    }
+    if(hours>0) badge.innerHTML=`⏰ 締め切りまで あと <b>${hours}時間${mins}分</b>`;
+    else if(mins>0) badge.innerHTML=`⚡ 締め切りまで あと <b>${mins}分${secs}秒</b>`;
+    else badge.innerHTML=`🔥 締め切りまで あと <b>${secs}秒！</b>`;
   }
-  updateBadge();
-  countdownTimer=setInterval(updateBadge,1000);
+  tick();
+  countdownTimer=setInterval(tick,1000);
 }
 
 // ── Tabs ──
@@ -354,7 +313,97 @@ function renderPredCount(n){
   document.getElementById('predCount').innerHTML=`現在 <strong>${n}</strong> 件の予想が登録されています`;
 }
 
-// ── Actual Score Area ──
+// ── Form Area ──
+function renderFormArea(){
+  const g=GAMES.find(x=>x.id===currentGame);
+  const el=document.getElementById('formArea');
+  const open=isOpen(g);
+  if(open){
+    el.innerHTML=`
+      <div class="add-section">
+        <div class="add-title">予想を登録</div>
+        <div class="form-row"><input class="inp" id="nameInp" placeholder="あなたの名前" maxlength="20" oninput="localStorage.setItem('wbc_username',this.value)"></div>
+        <div class="score-row">
+          <span class="score-label">🇯🇵 日本</span>
+          <input class="score-inp" id="scoreJp" type="number" min="0" max="30" placeholder="0" inputmode="numeric">
+          <span class="score-dash">—</span>
+          <input class="score-inp" id="scoreOpp" type="number" min="0" max="30" placeholder="0" inputmode="numeric">
+          <span class="score-label">${g.flag} ${g.opp}</span>
+        </div>
+        <button class="submit-btn" onclick="addPrediction()">⚾ 予想を登録する</button>
+      </div>
+      ${!isAdmin?`<div style="margin:0 16px 16px;text-align:center;">
+        <span style="font-size:11px;color:var(--muted);">管理者の方は</span>
+        <button onclick="showAdminLogin()" style="background:none;border:none;color:var(--gold);font-size:11px;cursor:pointer;text-decoration:underline;font-family:'Noto Sans JP',sans-serif;">こちらからログイン</button>
+      </div>`:''}`;
+  } else {
+    el.innerHTML=`
+      <div style="margin:0 16px 16px;background:rgba(255,255,255,.04);border:1px dashed rgba(255,255,255,.1);border-radius:14px;padding:18px;text-align:center;">
+        <div style="font-size:24px;margin-bottom:8px;">${new Date()<g.open?'⏳':'🔒'}</div>
+        <div style="font-size:13px;color:var(--muted);">${new Date()<g.open?g.date+'の予想受付はまだ始まっていません':g.date+'の予想は締め切りました'}</div>
+      </div>
+      ${!isAdmin?`<div style="margin:0 16px 16px;text-align:center;">
+        <span style="font-size:11px;color:var(--muted);">管理者の方は</span>
+        <button onclick="showAdminLogin()" style="background:none;border:none;color:var(--gold);font-size:11px;cursor:pointer;text-decoration:underline;font-family:'Noto Sans JP',sans-serif;">こちらからログイン</button>
+      </div>`:''}`;
+  }
+  setTimeout(restoreName,0);
+}
+
+function showAdminLogin(){
+  const g=GAMES.find(x=>x.id===currentGame);
+  const open=isOpen(g);
+  const el=document.getElementById('formArea');
+  const formHtml=open?`
+    <div class="add-section">
+      <div class="add-title">予想を登録</div>
+      <div class="form-row"><input class="inp" id="nameInp" placeholder="あなたの名前" maxlength="20" oninput="localStorage.setItem('wbc_username',this.value)"></div>
+      <div class="score-row">
+        <span class="score-label">🇯🇵 日本</span>
+        <input class="score-inp" id="scoreJp" type="number" min="0" max="30" placeholder="0" inputmode="numeric">
+        <span class="score-dash">—</span>
+        <input class="score-inp" id="scoreOpp" type="number" min="0" max="30" placeholder="0" inputmode="numeric">
+        <span class="score-label">${g.flag} ${g.opp}</span>
+      </div>
+      <button class="submit-btn" onclick="addPrediction()">⚾ 予想を登録する</button>
+    </div>`:'';
+  el.innerHTML=formHtml+`
+    <div style="margin:0 16px 16px;">
+      <div class="login-prompt" style="padding:14px;">
+        <div class="pw-row">
+          <input class="pw-inp" id="pwInp" type="password" placeholder="管理者パスワード" onkeydown="if(event.key==='Enter')loginFromPrompt()">
+          <button class="pw-btn" onclick="loginFromPrompt()">ログイン</button>
+        </div>
+      </div>
+    </div>`;
+  setTimeout(restoreName,0);
+}
+
+// ── Load ──
+async function loadPredictions(){
+  setLoading(true);
+  try{
+    const rows=await sbFetch(`predictions?game_id=eq.${currentGame}&order=created_at.asc`);
+    renderDeadlineBadge();
+    renderActualScoreArea(rows||[]);
+    renderStats(rows||[]);
+    renderList(rows||[]);
+    renderPredCount(rows?rows.length:0);
+    await renderRanking();
+  }catch(e){
+    console.error(e);
+    showToastError('データの読み込みに失敗しました');
+    renderList([]);
+  }
+  setLoading(false);
+}
+
+async function loadActualScore(){
+  try{const rows=await sbFetch(`actual_scores?game_id=eq.${currentGame}`);return rows&&rows.length>0?rows[0]:null;}
+  catch(e){return null;}
+}
+
+// ── Actual Score ──
 async function renderActualScoreArea(preds){
   const el=document.getElementById('actualScoreArea');
   if(!isAdmin){el.innerHTML='';return;}
@@ -363,10 +412,7 @@ async function renderActualScoreArea(preds){
     <div class="actual-section" style="margin:0 16px 16px;">
       <div class="actual-title">実際のスコアを入力</div>
       ${actual?`<div class="actual-result" style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
-        <div>
-          <div class="actual-result-score">🇯🇵 ${actual.jp} — ${actual.opp}</div>
-          <div class="actual-result-label">現在の登録スコア</div>
-        </div>
+        <div><div class="actual-result-score">🇯🇵 ${actual.jp} — ${actual.opp}</div><div class="actual-result-label">現在の登録スコア</div></div>
         <button onclick="resetActualScore()" style="background:none;border:1px solid rgba(255,100,100,.4);border-radius:8px;padding:6px 12px;color:#ff8899;font-size:11px;font-family:'Noto Sans JP',sans-serif;cursor:pointer;">🗑️ リセット</button>
       </div>`:''}
       <div class="actual-score-row">
@@ -379,54 +425,36 @@ async function renderActualScoreArea(preds){
     </div>`;
 }
 
+async function saveActualScore(){
+  const jp=document.getElementById('actualJp')?.value;
+  const opp=document.getElementById('actualOpp')?.value;
+  if(jp===''||opp===''){showToastError('スコアを入力してください');return;}
+  const jpN=parseInt(jp),oppN=parseInt(opp);
+  try{
+    await sbFetch('actual_scores',{method:'POST',prefer:'resolution=merge-duplicates,return=minimal',body:JSON.stringify({game_id:currentGame,jp:jpN,opp:oppN})});
+    const preds=await sbFetch(`predictions?game_id=eq.${currentGame}`);
+    for(const p of preds){
+      await sbFetch(`predictions?id=eq.${p.id}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({is_winner:p.jp===jpN&&p.opp===oppN})});
+    }
+    showToast('👑 正解者に王冠をつけました！');
+    await loadPredictions();
+  }catch(e){console.error(e);showToastError('保存に失敗しました: '+e.message);}
+}
+
 async function resetActualScore(){
   if(!confirm('スコアをリセットしますか？全員の王冠も外れます。'))return;
   try{
     await sbFetch(`actual_scores?game_id=eq.${currentGame}`,{method:'DELETE'});
-    // 全員の王冠を外す
     const preds=await sbFetch(`predictions?game_id=eq.${currentGame}`);
     for(const p of preds){
       await sbFetch(`predictions?id=eq.${p.id}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({is_winner:false})});
     }
     showToast('リセットしました');
     await loadPredictions();
-  }catch(e){
-    showToastError('リセットに失敗しました');
-  }
+  }catch(e){showToastError('リセットに失敗しました');}
 }
 
-async function saveActualScore(){
-  const jp=document.getElementById('actualJp')?.value;
-  const opp=document.getElementById('actualOpp')?.value;
-  if(jp===''||opp===''){showToastError('スコアを入力してください');return;}
-  const jpN=parseInt(jp), oppN=parseInt(opp);
-  try{
-    // Upsert actual score
-    await sbFetch('actual_scores',{
-      method:'POST',
-      prefer:'resolution=merge-duplicates,return=minimal',
-      body:JSON.stringify({game_id:currentGame,jp:jpN,opp:oppN})
-    });
-    // Get all predictions for this game
-    const preds=await sbFetch(`predictions?game_id=eq.${currentGame}`);
-    // Update is_winner for each
-    for(const p of preds){
-      const correct=(p.jp===jpN && p.opp===oppN);
-      await sbFetch(`predictions?id=eq.${p.id}`,{
-        method:'PATCH',
-        prefer:'return=minimal',
-        body:JSON.stringify({is_winner:correct})
-      });
-    }
-    showToast('👑 正解者に王冠をつけました！');
-    await loadPredictions();
-  }catch(e){
-    console.error(e);
-    showToastError('保存に失敗しました: '+e.message);
-  }
-}
-
-// ── Stats Bar ──
+// ── Stats ──
 function renderStats(preds){
   const el=document.getElementById('statsArea');
   if(!preds||preds.length===0){el.innerHTML='';return;}
@@ -459,80 +487,8 @@ function renderStats(preds){
     </div>`;
 }
 
-// ── Form Area ──
-function renderFormArea(){
-  const g=GAMES.find(x=>x.id===currentGame);
-  const el=document.getElementById('formArea');
-  const open=isOpen(g);
-  if(open){
-    el.innerHTML=`
-      <div class="add-section">
-        <div class="add-title">予想を登録</div>
-        <div class="form-row"><input class="inp" id="nameInp" placeholder="あなたの名前" maxlength="20" oninput="localStorage.setItem('wbc_username',this.value)"></div>
-        <div class="score-row">
-          <span class="score-label">🇯🇵 日本</span>
-          <input class="score-inp" id="scoreJp" type="number" min="0" max="30" placeholder="0" inputmode="numeric">
-          <span class="score-dash">—</span>
-          <input class="score-inp" id="scoreOpp" type="number" min="0" max="30" placeholder="0" inputmode="numeric">
-          <span class="score-label">${g.flag} ${g.opp}</span>
-        </div>
-        <button class="submit-btn" onclick="addPrediction()">⚾ 予想を登録する</button>
-      </div>
-      ${!isAdmin?`<div style="margin:0 16px 16px;text-align:center;">
-        <span style="font-size:11px;color:var(--muted);">管理者の方は</span>
-        <button onclick="showAdminLogin()" style="background:none;border:none;color:var(--gold);font-size:11px;cursor:pointer;text-decoration:underline;font-family:'Noto Sans JP',sans-serif;">こちらからログイン</button>
-      </div>`:''}`;
-  } else {
-    el.innerHTML=`
-      <div style="margin:0 16px 16px;background:rgba(255,255,255,.04);border:1px dashed rgba(255,255,255,.1);border-radius:14px;padding:18px;text-align:center;">
-        <div style="font-size:24px;margin-bottom:8px;">🔒</div>
-        <div style="font-size:13px;color:var(--muted);">${g.date}の予想は締め切りました</div>
-      </div>
-      ${!isAdmin?`<div style="margin:0 16px 16px;text-align:center;">
-        <span style="font-size:11px;color:var(--muted);">管理者の方は</span>
-        <button onclick="showAdminLogin()" style="background:none;border:none;color:var(--gold);font-size:11px;cursor:pointer;text-decoration:underline;font-family:'Noto Sans JP',sans-serif;">こちらからログイン</button>
-      </div>`:''}`;
-  }
-  // 名前を復元
-  setTimeout(()=>{
-    const saved=localStorage.getItem('wbc_username');
-    const inp=document.getElementById('nameInp');
-    if(saved&&inp) inp.value=saved;
-  },0);
-}
-
-function showAdminLogin(){
-  const g=GAMES.find(x=>x.id===currentGame);
-  const open=isOpen(g);
-  const el=document.getElementById('formArea');
-  const formHtml=open?`
-    <div class="add-section">
-      <div class="add-title">予想を登録</div>
-      <div class="form-row"><input class="inp" id="nameInp" placeholder="あなたの名前" maxlength="20" oninput="saveName(this.value)"></div>
-      <div class="score-row">
-        <span class="score-label">🇯🇵 日本</span>
-        <input class="score-inp" id="scoreJp" type="number" min="0" max="30" placeholder="0" inputmode="numeric">
-        <span class="score-dash">—</span>
-        <input class="score-inp" id="scoreOpp" type="number" min="0" max="30" placeholder="0" inputmode="numeric">
-        <span class="score-label">${g.flag} ${g.opp}</span>
-      </div>
-      <button class="submit-btn" onclick="addPrediction()">⚾ 予想を登録する</button>
-    </div>`:'';
-  el.innerHTML=formHtml+`
-    <div style="margin:0 16px 16px;">
-      <div class="login-prompt" style="padding:14px;">
-        <div class="pw-row">
-          <input class="pw-inp" id="pwInp" type="password" placeholder="管理者パスワード" onkeydown="if(event.key==='Enter')loginFromPrompt()">
-          <button class="pw-btn" onclick="loginFromPrompt()">ログイン</button>
-        </div>
-      </div>
-    </div>`;
-}
-
-// ── Prediction List ──
-function setLoading(on){
-  if(on)document.getElementById('predList').innerHTML='<div class="empty-pred" style="opacity:1">⏳ 読み込み中...</div>';
-}
+// ── List ──
+function setLoading(on){if(on)document.getElementById('predList').innerHTML='<div class="empty-pred" style="opacity:1">⏳ 読み込み中...</div>';}
 
 function renderList(preds){
   const el=document.getElementById('predList');
@@ -541,8 +497,8 @@ function renderList(preds){
   el.innerHTML=sorted.map(p=>{
     const init=[...p.name][0].toUpperCase();
     let win='';
-    if(p.jp>p.opp)win='<span class="pred-win win">日本勝ち予想 🎉</span>';
-    else if(p.jp<p.opp)win='<span class="pred-win lose">相手勝ち予想</span>';
+    if(p.jp>p.opp) win='<span class="pred-win win">日本勝ち予想 🎉</span>';
+    else if(p.jp<p.opp) win='<span class="pred-win lose">相手勝ち予想</span>';
     else win='<span class="pred-win draw">引き分け予想</span>';
     const d=new Date(p.created_at);
     const t=(d.getMonth()+1)+'/'+d.getDate()+' '+d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
@@ -563,28 +519,19 @@ function renderList(preds){
 async function renderRanking(){
   const el=document.getElementById('rankingArea');
   try{
-    // 全予想を取得
     const all=await sbFetch('predictions?order=name.asc');
     if(!all||all.length===0){el.innerHTML='';return;}
-
-    // 名前ごとに集計
     const map={};
-    GAMES.forEach(g=>{
-      // game_idごとに参加者をマーク
-    });
     all.forEach(p=>{
-      if(!map[p.name]) map[p.name]={name:p.name, wins:0, total:0, games:{}};
+      if(!map[p.name]) map[p.name]={name:p.name,wins:0,total:0,games:{}};
       map[p.name].total++;
       map[p.name].games[p.game_id]={jp:p.jp,opp:p.opp,winner:p.is_winner};
       if(p.is_winner) map[p.name].wins++;
     });
-
-    // 正解数→参加数→名前 でソート
     const sorted=Object.values(map).sort((a,b)=>b.wins-a.wins||b.total-a.total||a.name.localeCompare(b.name));
     const medals=['🥇','🥈','🥉'];
     const rankColors=['gold','silver','bronze'];
     const gameLabels={g0:'3/6',g1:'3/7',g2:'3/8'};
-
     el.innerHTML=`
       <div class="ranking-section">
         <div class="ranking-title">🏆 総合ランキング</div>
@@ -620,7 +567,6 @@ async function addPrediction(){
   if(!name){showToastError('名前を入力してください！');return;}
   if(jp===''||opp===''){showToastError('スコアを入力してください！');return;}
   try{
-    // 重複チェック
     const existing=await sbFetch(`predictions?game_id=eq.${currentGame}&name=eq.${encodeURIComponent(name)}`);
     if(existing&&existing.length>0){showToastError('この試合はすでに予想済みです！');return;}
     localStorage.setItem('wbc_username',name);
@@ -646,21 +592,9 @@ async function toggleCrown(id,currentlyWinner){
   }catch(e){showToastError('更新に失敗しました');}
 }
 
-function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-
-function switchGame(id){currentGame=id;renderTabs();renderMatchCard();renderFormArea();restoreName();loadPredictions();}
+function switchGame(id){currentGame=id;renderTabs();renderMatchCard();renderFormArea();loadPredictions();}
 function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast show';setTimeout(()=>t.className='toast',2500);}
 function showToastError(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast error show';setTimeout(()=>t.className='toast',2500);}
-
-// ── Name Memory ──
-function saveName(val){
-  if(val) localStorage.setItem('wbc_username', val);
-}
-function restoreName(){
-  const saved=localStorage.getItem('wbc_username');
-  const inp=document.getElementById('nameInp');
-  if(saved&&inp) inp.value=saved;
-}
 
 // ── 今日の試合タブを自動選択 ──
 function autoSelectGame(){
@@ -668,16 +602,14 @@ function autoSelectGame(){
   const today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
   const dates={g0:new Date('2026-03-06'),g1:new Date('2026-03-07'),g2:new Date('2026-03-08')};
   let selected=null;
-  for(const g of GAMES){
-    if(dates[g.id]>=today){selected=g.id;break;}
-  }
+  for(const g of GAMES){if(dates[g.id]>=today){selected=g.id;break;}}
   if(!selected) selected=GAMES[GAMES.length-1].id;
   currentGame=selected;
 }
 
 // INIT
 autoSelectGame();
-renderTabs();renderMatchCard();renderAuthBar();renderFormArea();restoreName();loadPredictions();
+renderTabs();renderMatchCard();renderAuthBar();renderFormArea();loadPredictions();
 setInterval(loadPredictions,30000);
 </script>
 </body>
