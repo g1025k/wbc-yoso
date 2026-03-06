@@ -532,7 +532,9 @@ function renderList(preds){
     const isWinner=p.is_winner;
     const winnerBadge=isWinner?'<span class="winner-badge">👑 正解！</span>':'';
     const crownBtn=isAdmin?`<button class="crown-btn ${isWinner?'crowned':''}" onclick="toggleCrown('${p.id}',${isWinner})" title="${isWinner?'王冠を外す':'王冠をつける'}">${isWinner?'👑':'☆'}</button>`:'';
-    const delBtn=isAdmin?`<button class="delete-btn" onclick="deletePred('${p.id}')" title="削除">✕</button>`:'';
+    const myName=localStorage.getItem('wbc_username')||'';
+    const isOwn=myName&&myName===p.name;
+    const delBtn=(isAdmin||isOwn)?`<button class="delete-btn" onclick="deletePred('${p.id}')" title="削除">✕</button>`:'';
     const avatar=isWinner?`<div class="winner-crown">👑</div>`:`<div class="pred-avatar">${init}</div>`;
     return `<div class="pred-item ${isWinner?'winner':''}">
       ${avatar}
@@ -601,9 +603,12 @@ async function addPrediction(){
   const jp=document.getElementById('scoreJp')?.value;
   const opp=document.getElementById('scoreOpp')?.value;
   if(!name){showToastError('名前を入力してください！');return;}
-  localStorage.setItem('wbc_username', name);
   if(jp===''||opp===''){showToastError('スコアを入力してください！');return;}
   try{
+    // 重複チェック
+    const existing=await sbFetch(`predictions?game_id=eq.${currentGame}&name=eq.${encodeURIComponent(name)}`);
+    if(existing&&existing.length>0){showToastError('この試合はすでに予想済みです！');return;}
+    localStorage.setItem('wbc_username',name);
     await sbFetch('predictions',{method:'POST',prefer:'return=minimal',body:JSON.stringify({game_id:currentGame,name,jp:parseInt(jp),opp:parseInt(opp)})});
     document.getElementById('scoreJp').value='';
     document.getElementById('scoreOpp').value='';
