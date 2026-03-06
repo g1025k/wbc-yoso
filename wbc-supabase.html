@@ -645,7 +645,21 @@ function restoreName(){
   if(saved&&inp) inp.value=saved;
 }
 
+// ── 今日の試合タブを自動選択 ──
+function autoSelectGame(){
+  const now=new Date();
+  const today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const dates={g0:new Date('2026-03-06'),g1:new Date('2026-03-07'),g2:new Date('2026-03-08')};
+  let selected=null;
+  for(const g of GAMES){
+    if(dates[g.id]>=today){selected=g.id;break;}
+  }
+  if(!selected) selected=GAMES[GAMES.length-1].id;
+  currentGame=selected;
+}
+
 // INIT
+autoSelectGame();
 renderTabs();renderMatchCard();renderAuthBar();renderFormArea();restoreName();loadPredictions();
 setInterval(loadPredictions,30000);
 </script>
