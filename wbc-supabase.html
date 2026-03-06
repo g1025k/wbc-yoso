@@ -451,7 +451,7 @@ function renderFormArea(){
     el.innerHTML=`
       <div class="add-section">
         <div class="add-title">予想を登録</div>
-        <div class="form-row"><input class="inp" id="nameInp" placeholder="あなたの名前" maxlength="20"></div>
+        <div class="form-row"><input class="inp" id="nameInp" placeholder="あなたの名前" maxlength="20" oninput="saveName(this.value)"></div>
         <div class="score-row">
           <span class="score-label">🇯🇵 日本</span>
           <input class="score-inp" id="scoreJp" type="number" min="0" max="30" placeholder="0" inputmode="numeric">
@@ -485,7 +485,7 @@ function showAdminLogin(){
   const formHtml=open?`
     <div class="add-section">
       <div class="add-title">予想を登録</div>
-      <div class="form-row"><input class="inp" id="nameInp" placeholder="あなたの名前" maxlength="20"></div>
+      <div class="form-row"><input class="inp" id="nameInp" placeholder="あなたの名前" maxlength="20" oninput="saveName(this.value)"></div>
       <div class="score-row">
         <span class="score-label">🇯🇵 日本</span>
         <input class="score-inp" id="scoreJp" type="number" min="0" max="30" placeholder="0" inputmode="numeric">
@@ -595,6 +595,7 @@ async function addPrediction(){
   const jp=document.getElementById('scoreJp')?.value;
   const opp=document.getElementById('scoreOpp')?.value;
   if(!name){showToastError('名前を入力してください！');return;}
+  localStorage.setItem('wbc_username', name);
   if(jp===''||opp===''){showToastError('スコアを入力してください！');return;}
   try{
     await sbFetch('predictions',{method:'POST',prefer:'return=minimal',body:JSON.stringify({game_id:currentGame,name,jp:parseInt(jp),opp:parseInt(opp)})});
@@ -621,12 +622,22 @@ async function toggleCrown(id,currentlyWinner){
 
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
-function switchGame(id){currentGame=id;renderTabs();renderMatchCard();renderFormArea();loadPredictions();}
+function switchGame(id){currentGame=id;renderTabs();renderMatchCard();renderFormArea();restoreName();loadPredictions();}
 function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast show';setTimeout(()=>t.className='toast',2500);}
 function showToastError(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast error show';setTimeout(()=>t.className='toast',2500);}
 
+// ── Name Memory ──
+function saveName(val){
+  if(val) localStorage.setItem('wbc_username', val);
+}
+function restoreName(){
+  const saved=localStorage.getItem('wbc_username');
+  const inp=document.getElementById('nameInp');
+  if(saved&&inp) inp.value=saved;
+}
+
 // INIT
-renderTabs();renderMatchCard();renderAuthBar();renderFormArea();loadPredictions();
+renderTabs();renderMatchCard();renderAuthBar();renderFormArea();restoreName();loadPredictions();
 setInterval(loadPredictions,30000);
 </script>
 </body>
