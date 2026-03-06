@@ -140,6 +140,13 @@ body{background:var(--navy);color:var(--white);font-family:'Noto Sans JP',sans-s
 .rank-name{flex:1;font-weight:700;font-size:14px;}
 .rank-score{font-family:'Oswald',sans-serif;font-size:18px;color:var(--gold);}
 .rank-label{font-size:10px;color:var(--muted);}
+.game-badge{display:inline-block;font-size:9px;padding:2px 6px;border-radius:6px;margin:2px 2px 0 0;font-weight:700;}
+.game-badge.hit{background:rgba(245,194,0,.2);color:var(--gold);border:1px solid rgba(245,194,0,.3);}
+.game-badge.played{background:rgba(255,255,255,.07);color:var(--muted);border:1px solid rgba(255,255,255,.1);}
+.game-badge.miss{background:transparent;color:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.07);}
+.rank-info{flex:1;min-width:0;}
+.rank-games{margin-top:4px;display:flex;flex-wrap:wrap;gap:2px;}
+
 </style>
 </head>
 <body>
@@ -315,15 +322,18 @@ async function renderActualScoreArea(preds){
   const actual=await loadActualScore();
   el.innerHTML=`
     <div class="actual-section" style="margin:0 16px 16px;">
-      <div class="actual-title">実際のスコアを入力</div>
-      ${actual?`<div class="actual-result"><div class="actual-result-score">🇯🇵 ${actual.jp} — ${actual.opp} 🏳️</div><div class="actual-result-label">登録済みスコア</div></div><br>`:``}
+      <div class="actual-title">${actual?'✏️ 実際のスコアを修正':'実際のスコアを入力'}</div>
+      ${actual?`<div class="actual-result" style="margin-bottom:12px;">
+        <div class="actual-result-score">🇯🇵 ${actual.jp} — ${actual.opp}</div>
+        <div class="actual-result-label">現在の登録スコア（修正可）</div>
+      </div>`:''}
       <div class="actual-score-row">
         <span class="score-label">🇯🇵 日本</span>
-        <input class="score-inp" id="actualJp" type="number" min="0" max="30" placeholder="${actual?actual.jp:'0'}" inputmode="numeric" value="${actual?actual.jp:''}">
+        <input class="score-inp" id="actualJp" type="number" min="0" max="30" inputmode="numeric" value="${actual?actual.jp:''}">
         <span class="score-dash">—</span>
-        <input class="score-inp" id="actualOpp" type="number" min="0" max="30" placeholder="${actual?actual.opp:'0'}" inputmode="numeric" value="${actual?actual.opp:''}">
+        <input class="score-inp" id="actualOpp" type="number" min="0" max="30" inputmode="numeric" value="${actual?actual.opp:''}">
       </div>
-      <button class="auto-crown-btn" onclick="saveActualScore()">👑 スコアを確定して正解者に王冠をつける</button>
+      <button class="auto-crown-btn" onclick="saveActualScore()">${actual?'✏️ スコアを修正して王冠を付け直す':'👑 スコアを確定して正解者に王冠をつける'}</button>
     </div>`;
 }
 
@@ -489,26 +499,53 @@ function renderList(preds){
 async function renderRanking(){
   const el=document.getElementById('rankingArea');
   try{
-    const all=await sbFetch('predictions?is_winner=eq.true&order=name.asc');
+    // 全予想を取得
+    const all=await sbFetch('predictions?order=name.asc');
     if(!all||all.length===0){el.innerHTML='';return;}
-    // count wins per name
+
+    // 名前ごとに集計
     const map={};
-    all.forEach(p=>{map[p.name]=(map[p.name]||0)+1;});
-    const sorted=Object.entries(map).sort((a,b)=>b[1]-a[1]);
+    GAMES.forEach(g=>{
+      // game_idごとに参加者をマーク
+    });
+    all.forEach(p=>{
+      if(!map[p.name]) map[p.name]={name:p.name, wins:0, total:0, games:{}};
+      map[p.name].total++;
+      map[p.name].games[p.game_id]={jp:p.jp,opp:p.opp,winner:p.is_winner};
+      if(p.is_winner) map[p.name].wins++;
+    });
+
+    // 正解数→参加数→名前 でソート
+    const sorted=Object.values(map).sort((a,b)=>b.wins-a.wins||b.total-a.total||a.name.localeCompare(b.name));
     const medals=['🥇','🥈','🥉'];
     const rankColors=['gold','silver','bronze'];
+    const gameLabels={g0:'3/6',g1:'3/7',g2:'3/8'};
+
     el.innerHTML=`
       <div class="ranking-section">
-        <div class="ranking-title">🏆 3試合 正解ランキング</div>
-        ${sorted.map(([name,wins],i)=>`
-          <div class="rank-item">
+        <div class="ranking-title">🏆 総合ランキング</div>
+        ${sorted.map((p,i)=>{
+          const gameDetail=GAMES.map(g=>{
+            const gd=p.games[g.id];
+            if(!gd) return `<span class="game-badge miss">─ ${gameLabels[g.id]}</span>`;
+            if(gd.winner) return `<span class="game-badge hit">👑 ${gameLabels[g.id]} ${gd.jp}-${gd.opp}</span>`;
+            return `<span class="game-badge played">${gameLabels[g.id]} ${gd.jp}-${gd.opp}</span>`;
+          }).join('');
+          return `<div class="rank-item">
             <div class="rank-num ${rankColors[i]||''}">${medals[i]||i+1}</div>
-            <div class="rank-avatar">${[...name][0].toUpperCase()}</div>
-            <div class="rank-name">${esc(name)}</div>
-            <div style="text-align:right"><div class="rank-score">${wins}</div><div class="rank-label">正解</div></div>
-          </div>`).join('')}
+            <div class="rank-avatar">${[...p.name][0].toUpperCase()}</div>
+            <div class="rank-info">
+              <div class="rank-name">${esc(p.name)}</div>
+              <div class="rank-games">${gameDetail}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <div class="rank-score">${p.wins}<span style="font-size:12px;color:var(--muted);">/${p.total}</span></div>
+              <div class="rank-label">正解/参加</div>
+            </div>
+          </div>`;
+        }).join('')}
       </div>`;
-  }catch(e){el.innerHTML='';}
+  }catch(e){console.error(e);el.innerHTML='';}
 }
 
 // ── CRUD ──
