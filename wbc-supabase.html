@@ -264,30 +264,53 @@ function setLoading(on){
 function renderFormArea(){
   const g=GAMES.find(x=>x.id===currentGame);
   const el=document.getElementById('formArea');
-  if(isAdmin){
-    el.innerHTML=`
-      <div class="add-section">
-        <div class="add-title">予想を登録（管理者）</div>
-        <div class="form-row"><input class="inp" id="nameInp" placeholder="予想者の名前" maxlength="20"></div>
-        <div class="score-row">
-          <span class="score-label">🇯🇵 日本</span>
-          <input class="score-inp" id="scoreJp" type="number" min="0" max="30" placeholder="0" inputmode="numeric">
-          <span class="score-dash">—</span>
-          <input class="score-inp" id="scoreOpp" type="number" min="0" max="30" placeholder="0" inputmode="numeric">
-          <span class="score-label">${g.flag} ${g.opp}</span>
-        </div>
-        <button class="submit-btn" onclick="addPrediction()">⚾ 予想を登録する</button>
-      </div>`;
-  } else {
-    el.innerHTML=`
-      <div class="login-prompt">
-        <p>👀 現在は<b>観覧モード</b>です。<br>予想の登録・削除は管理者のみできます。</p>
+  // 誰でも予想登録できる
+  el.innerHTML=`
+    <div class="add-section">
+      <div class="add-title">予想を登録</div>
+      <div class="form-row"><input class="inp" id="nameInp" placeholder="あなたの名前" maxlength="20"></div>
+      <div class="score-row">
+        <span class="score-label">🇯🇵 日本</span>
+        <input class="score-inp" id="scoreJp" type="number" min="0" max="30" placeholder="0" inputmode="numeric">
+        <span class="score-dash">—</span>
+        <input class="score-inp" id="scoreOpp" type="number" min="0" max="30" placeholder="0" inputmode="numeric">
+        <span class="score-label">${g.flag} ${g.opp}</span>
+      </div>
+      <button class="submit-btn" onclick="addPrediction()">⚾ 予想を登録する</button>
+    </div>
+    ${!isAdmin?`
+    <div style="margin:0 16px 16px;text-align:center;">
+      <span style="font-size:11px;color:var(--muted);">管理者の方は</span>
+      <button onclick="showAdminLogin()" style="background:none;border:none;color:var(--gold);font-size:11px;cursor:pointer;text-decoration:underline;font-family:'Noto Sans JP',sans-serif;">こちらからログイン</button>
+    </div>`:''}
+  `;
+}
+
+function showAdminLogin(){
+  const el=document.getElementById('formArea');
+  const g=GAMES.find(x=>x.id===currentGame);
+  el.innerHTML=`
+    <div class="add-section">
+      <div class="add-title">予想を登録</div>
+      <div class="form-row"><input class="inp" id="nameInp" placeholder="あなたの名前" maxlength="20"></div>
+      <div class="score-row">
+        <span class="score-label">🇯🇵 日本</span>
+        <input class="score-inp" id="scoreJp" type="number" min="0" max="30" placeholder="0" inputmode="numeric">
+        <span class="score-dash">—</span>
+        <input class="score-inp" id="scoreOpp" type="number" min="0" max="30" placeholder="0" inputmode="numeric">
+        <span class="score-label">${g.flag} ${g.opp}</span>
+      </div>
+      <button class="submit-btn" onclick="addPrediction()">⚾ 予想を登録する</button>
+    </div>
+    <div style="margin:0 16px 16px;">
+      <div class="login-prompt" style="padding:14px;">
         <div class="pw-row">
           <input class="pw-inp" id="pwInp" type="password" placeholder="管理者パスワード" onkeydown="if(event.key==='Enter')loginFromPrompt()">
           <button class="pw-btn" onclick="loginFromPrompt()">ログイン</button>
         </div>
-      </div>`;
-  }
+      </div>
+    </div>
+  `;
 }
 function renderList(preds){
   const el=document.getElementById('predList');
