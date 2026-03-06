@@ -280,8 +280,10 @@ function renderDeadlineBadge(){
     el.parentNode.insertBefore(badge,el);
   }
   badge.className='deadline-badge'+(open?' open':'');
+  const dh = g.deadline.getHours().toString().padStart(2,'0');
+  const dm = g.deadline.getMinutes().toString().padStart(2,'0');
   badge.innerHTML=open
-    ?`⏰ 予想受付中！（${g.date} 24:00まで）`
+    ?`⏰ 予想受付中！（${g.date} ${dh}:${dm}まで）`
     :`🔒 ${g.date}の予想は締め切りました`;
 }
 
