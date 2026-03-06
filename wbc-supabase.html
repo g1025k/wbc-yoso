@@ -322,10 +322,13 @@ async function renderActualScoreArea(preds){
   const actual=await loadActualScore();
   el.innerHTML=`
     <div class="actual-section" style="margin:0 16px 16px;">
-      <div class="actual-title">${actual?'✏️ 実際のスコアを修正':'実際のスコアを入力'}</div>
-      ${actual?`<div class="actual-result" style="margin-bottom:12px;">
-        <div class="actual-result-score">🇯🇵 ${actual.jp} — ${actual.opp}</div>
-        <div class="actual-result-label">現在の登録スコア（修正可）</div>
+      <div class="actual-title">実際のスコアを入力</div>
+      ${actual?`<div class="actual-result" style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <div>
+          <div class="actual-result-score">🇯🇵 ${actual.jp} — ${actual.opp}</div>
+          <div class="actual-result-label">現在の登録スコア</div>
+        </div>
+        <button onclick="resetActualScore()" style="background:none;border:1px solid rgba(255,100,100,.4);border-radius:8px;padding:6px 12px;color:#ff8899;font-size:11px;font-family:'Noto Sans JP',sans-serif;cursor:pointer;">🗑️ リセット</button>
       </div>`:''}
       <div class="actual-score-row">
         <span class="score-label">🇯🇵 日本</span>
@@ -333,8 +336,24 @@ async function renderActualScoreArea(preds){
         <span class="score-dash">—</span>
         <input class="score-inp" id="actualOpp" type="number" min="0" max="30" inputmode="numeric" value="${actual?actual.opp:''}">
       </div>
-      <button class="auto-crown-btn" onclick="saveActualScore()">${actual?'✏️ スコアを修正して王冠を付け直す':'👑 スコアを確定して正解者に王冠をつける'}</button>
+      <button class="auto-crown-btn" onclick="saveActualScore()">👑 スコアを確定して正解者に王冠をつける</button>
     </div>`;
+}
+
+async function resetActualScore(){
+  if(!confirm('スコアをリセットしますか？全員の王冠も外れます。'))return;
+  try{
+    await sbFetch(`actual_scores?game_id=eq.${currentGame}`,{method:'DELETE'});
+    // 全員の王冠を外す
+    const preds=await sbFetch(`predictions?game_id=eq.${currentGame}`);
+    for(const p of preds){
+      await sbFetch(`predictions?id=eq.${p.id}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({is_winner:false})});
+    }
+    showToast('リセットしました');
+    await loadPredictions();
+  }catch(e){
+    showToastError('リセットに失敗しました');
+  }
 }
 
 async function saveActualScore(){
