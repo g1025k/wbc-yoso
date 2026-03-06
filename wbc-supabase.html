@@ -90,6 +90,13 @@ body{background:var(--navy);color:var(--white);font-family:'Noto Sans JP',sans-s
 .pred-score .s-opp{color:rgba(255,255,255,.6);}
 .delete-btn{background:none;border:none;color:var(--muted);font-size:17px;cursor:pointer;padding:4px;opacity:.45;transition:opacity .2s;flex-shrink:0;}
 .delete-btn:active{opacity:1;}
+.crown-btn{background:none;border:1px solid rgba(255,255,255,.15);border-radius:8px;color:var(--muted);font-size:16px;cursor:pointer;padding:4px 7px;opacity:.5;transition:all .2s;flex-shrink:0;}
+.crown-btn:active{opacity:1;}
+.crown-btn.crowned{border-color:var(--gold);opacity:1;background:rgba(245,194,0,.12);}
+.pred-item.winner{background:linear-gradient(135deg,rgba(245,194,0,.12),rgba(232,150,10,.06));border-color:rgba(245,194,0,.5);box-shadow:0 0 20px rgba(245,194,0,.15);}
+.winner-badge{font-size:11px;font-weight:900;letter-spacing:.1em;padding:3px 10px;border-radius:20px;background:linear-gradient(135deg,var(--gold),var(--gold2));color:var(--navy);display:inline-block;margin-top:3px;}
+.winner-crown{font-size:28px;animation:crownPop .4s cubic-bezier(.34,1.56,.64,1);}
+@keyframes crownPop{from{transform:scale(0) rotate(-20deg);}to{transform:scale(1) rotate(0deg);}}
 .empty-pred{text-align:center;padding:32px;color:var(--muted);font-size:13px;opacity:.7;}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:linear-gradient(135deg,var(--gold),var(--gold2));color:var(--navy);font-weight:900;font-size:13px;padding:12px 24px;border-radius:100px;z-index:999;transition:transform .35s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;box-shadow:0 8px 24px rgba(245,194,0,.4);}
 .toast.show{transform:translateX(-50%) translateY(0);}
@@ -134,7 +141,6 @@ const GAMES=[
   {id:'g0',date:'3/6(金)',time:'19:00',opp:'チャイニーズ・タイペイ',flag:'🇹🇼',sub:'CHINESE TAIPEI'},
   {id:'g1',date:'3/7(土)',time:'19:00',opp:'韓国',flag:'🇰🇷',sub:'KOREA'},
   {id:'g2',date:'3/8(日)',time:'19:00',opp:'オーストラリア',flag:'🇦🇺',sub:'AUSTRALIA'},
-  {id:'g3',date:'3/10(火)',time:'19:00',opp:'チェコ',flag:'🇨🇿',sub:'CZECH'},
 ];
 const PASSWORD='maru';
 let currentGame='g0',isAdmin=false;
@@ -286,7 +292,9 @@ function renderFormArea(){
 function renderList(preds){
   const el=document.getElementById('predList');
   if(!preds||preds.length===0){el.innerHTML='<div class="empty-pred">まだ誰も予想していません<br>最初に予想してみよう！⚾</div>';return;}
-  el.innerHTML=[...preds].reverse().map(p=>{
+  // winners first, then by created_at desc
+  const sorted=[...preds].sort((a,b)=>(b.is_winner?1:0)-(a.is_winner?1:0));
+  el.innerHTML=sorted.map(p=>{
     const init=[...p.name][0].toUpperCase();
     let win='';
     if(p.jp>p.opp)win='<span class="pred-win win">日本勝ち予想 🎉</span>';
@@ -294,13 +302,31 @@ function renderList(preds){
     else win='<span class="pred-win draw">引き分け予想</span>';
     const d=new Date(p.created_at);
     const t=(d.getMonth()+1)+'/'+d.getDate()+' '+d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
-    const del=isAdmin?`<button class="delete-btn" onclick="deletePred('${p.id}')" title="削除">✕</button>`:'';
-    return `<div class="pred-item">
-      <div class="pred-avatar">${init}</div>
-      <div class="pred-info"><div class="pred-name">${esc(p.name)}</div>${win}<div class="pred-time">${t}</div></div>
+    const isWinner=p.is_winner;
+    const winnerBadge=isWinner?'<span class="winner-badge">👑 正解！</span>':'';
+    const crownBtn=isAdmin?`<button class="crown-btn ${isWinner?'crowned':''}" onclick="toggleCrown('${p.id}',${isWinner?'true':'false'})" title="${isWinner?'王冠を外す':'王冠をつける'}">${isWinner?'👑':'☆'}</button>`:'';
+    const delBtn=isAdmin?`<button class="delete-btn" onclick="deletePred('${p.id}')" title="削除">✕</button>`:'';
+    const avatar=isWinner?`<div class="winner-crown">👑</div>`:`<div class="pred-avatar">${init}</div>`;
+    return `<div class="pred-item ${isWinner?'winner':''}">
+      ${avatar}
+      <div class="pred-info"><div class="pred-name">${esc(p.name)}</div>${winnerBadge||win}<div class="pred-time">${t}</div></div>
       <div class="pred-score"><span class="s-japan">${p.jp}</span><span class="s-sep">—</span><span class="s-opp">${p.opp}</span></div>
-      ${del}</div>`;
+      ${crownBtn}${delBtn}</div>`;
   }).join('');
+}
+
+async function toggleCrown(id, currentlyWinner){
+  try{
+    await sbFetch(`predictions?id=eq.${id}`,{
+      method:'PATCH',
+      prefer:'return=minimal',
+      body:JSON.stringify({is_winner:!currentlyWinner})
+    });
+    await loadPredictions();
+    showToast(currentlyWinner?'王冠を外しました':'👑 王冠をつけました！');
+  }catch(e){
+    showToastError('更新に失敗しました');
+  }
 }
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function switchGame(id){currentGame=id;renderTabs();renderMatchCard();renderFormArea();loadPredictions();}
