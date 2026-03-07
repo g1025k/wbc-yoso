@@ -156,6 +156,28 @@ body{background:var(--navy);color:var(--white);font-family:'Noto Sans JP',sans-s
 .rank-info{flex:1;min-width:0;}
 .rank-games{margin-top:4px;display:flex;flex-wrap:wrap;gap:2px;}
 
+/* OHTANI SPECIAL */
+.ohtani-section{margin:20px 16px 0;background:linear-gradient(135deg,rgba(26,111,168,.12),rgba(13,74,122,.08));border:1px solid rgba(26,111,168,.4);border-radius:18px;padding:16px 18px;}
+.ohtani-title{font-size:11px;letter-spacing:.15em;color:#5bb8f5;text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.ohtani-title::before{content:'';flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(26,111,168,.4));}
+.ohtani-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(26,111,168,.4),transparent);}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+.stat-item{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:5px;}
+.stat-label{font-size:10px;color:var(--muted);letter-spacing:.08em;}
+.stat-ctrl{display:flex;align-items:center;gap:6px;justify-content:center;}
+.stat-minus,.stat-plus{width:28px;height:28px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:900;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
+.stat-minus:active,.stat-plus:active{background:rgba(91,184,245,.3);}
+.stat-val{font-family:'Oswald',sans-serif;font-size:22px;color:#5bb8f5;min-width:28px;text-align:center;}
+.ohtani-submit{width:100%;background:linear-gradient(135deg,#1a6fa8,#0d4a7a);border:none;border-radius:12px;padding:13px;font-family:'Noto Sans JP',sans-serif;font-size:15px;font-weight:900;color:#fff;cursor:pointer;letter-spacing:.05em;transition:transform .15s;box-shadow:0 4px 16px rgba(26,111,168,.4);}
+.ohtani-submit:active{transform:scale(.96);}
+.ohtani-preds{margin-top:14px;}
+.ohtani-pred-item{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:flex-start;gap:10px;}
+.ohtani-pred-name{font-weight:700;font-size:13px;margin-bottom:5px;}
+.ohtani-pred-stats{display:flex;flex-wrap:wrap;gap:4px;}
+.ostat{font-size:10px;padding:2px 7px;border-radius:20px;background:rgba(91,184,245,.12);color:#5bb8f5;border:1px solid rgba(91,184,245,.25);font-weight:700;}
+.ostat.hr{background:rgba(204,34,51,.15);color:#ff8899;border-color:rgba(204,34,51,.3);}
+.ostat.hit{background:rgba(245,194,0,.12);color:var(--gold);border-color:rgba(245,194,0,.25);}
+
 </style>
 </head>
 <body>
@@ -203,6 +225,9 @@ body{background:var(--navy);color:var(--white);font-family:'Noto Sans JP',sans-s
 
   <!-- RANKING -->
   <div id="rankingArea"></div>
+
+  <!-- OHTANI SPECIAL -->
+  <div id="ohtaniArea"></div>
 
   <!-- ADMIN LOGIN AREA (bottom) -->
   <div id="adminLoginArea"></div>
@@ -740,11 +765,108 @@ function autoSelectGame(){
   currentGame=selected;
 }
 
+// ── Ohtani Special Prediction ──
+const OHTANI_STATS=[
+  {key:'at_bats',label:'打数',max:50},
+  {key:'hits',label:'安打',max:30},
+  {key:'hr',label:'本塁打',max:15},
+  {key:'rbi',label:'打点',max:20},
+  {key:'sb',label:'盗塁',max:10},
+  {key:'bb',label:'四球',max:20},
+  {key:'hbp',label:'死球',max:10},
+  {key:'so',label:'三振',max:30}
+];
+const ohtaniVals={at_bats:0,hits:0,hr:0,rbi:0,sb:0,bb:0,hbp:0,so:0};
+
+function changeOStat(key,delta){
+  const stat=OHTANI_STATS.find(s=>s.key===key);
+  ohtaniVals[key]=Math.max(0,Math.min(stat.max,ohtaniVals[key]+delta));
+  const el=document.getElementById('oval_'+key);
+  if(el) el.textContent=ohtaniVals[key];
+}
+
+async function loadOhtaniPredictions(){
+  const el=document.getElementById('ohtaniArea');
+  if(!el) return;
+  try{
+    const preds=await sbFetch('ohtani_predictions?order=created_at.asc');
+    renderOhtaniSection(preds||[]);
+  }catch(e){renderOhtaniSection([]);}
+}
+
+function renderOhtaniSection(preds){
+  const el=document.getElementById('ohtaniArea');
+  if(!el) return;
+  const name=localStorage.getItem('wbc_username')||'';
+  const mine=preds.find(p=>p.name===name);
+  const formHtml=!mine?`
+    <div class="stat-grid">
+      ${OHTANI_STATS.map(s=>`
+        <div class="stat-item">
+          <div class="stat-label">${s.label}</div>
+          <div class="stat-ctrl">
+            <button class="stat-minus" onclick="changeOStat('${s.key}',-1)">−</button>
+            <div class="stat-val" id="oval_${s.key}">0</div>
+            <button class="stat-plus" onclick="changeOStat('${s.key}',1)">＋</button>
+          </div>
+        </div>`).join('')}
+    </div>
+    <button class="ohtani-submit" onclick="addOhtaniPrediction()">⚾ 大谷予想を登録する</button>
+  `:`<div style="text-align:center;font-size:12px;color:var(--muted);padding:4px 0 12px;">✅ あなたの予想は登録済みです</div>`;
+  const predsHtml=preds.length===0
+    ?'<div class="empty-pred">まだ予想がありません</div>'
+    :preds.map(p=>`
+      <div class="ohtani-pred-item">
+        <div class="pred-avatar" style="background:linear-gradient(135deg,#1a6fa8,#0d4a7a);border-color:rgba(91,184,245,.3);">${[...p.name][0].toUpperCase()}</div>
+        <div style="flex:1;min-width:0;">
+          <div class="ohtani-pred-name">${esc(p.name)}</div>
+          <div class="ohtani-pred-stats">
+            <span class="ostat hit">${p.at_bats}打数 ${p.hits}安打</span>
+            <span class="ostat hr">${p.hr}本塁打</span>
+            <span class="ostat">${p.rbi}打点</span>
+            <span class="ostat">${p.sb}盗塁</span>
+            <span class="ostat">${p.bb}四球</span>
+            <span class="ostat">${p.hbp}死球</span>
+            <span class="ostat">${p.so}三振</span>
+          </div>
+        </div>
+        ${isAdmin?`<button class="delete-btn" onclick="deleteOhtaniPred('${p.id}')">🗑</button>`:''}
+      </div>`).join('');
+  el.innerHTML=`
+    <div class="ohtani-section">
+      <div class="ohtani-title">⚾ 大谷翔平 スペシャル予想</div>
+      ${formHtml}
+      <div class="ohtani-preds">${predsHtml}</div>
+    </div>`;
+}
+
+async function addOhtaniPrediction(){
+  const name=localStorage.getItem('wbc_username')||'';
+  if(!name){showToastError('名前を入力してください');return;}
+  try{
+    const existing=await sbFetch(`ohtani_predictions?name=eq.${encodeURIComponent(name)}`);
+    if(existing&&existing.length>0){showToastError('すでに予想済みです');return;}
+    await sbFetch('ohtani_predictions',{method:'POST',prefer:'return=minimal',body:JSON.stringify({name,...ohtaniVals})});
+    showToast('大谷予想を登録しました！⚾');
+    await loadOhtaniPredictions();
+  }catch(e){showToastError('登録に失敗しました');}
+}
+
+async function deleteOhtaniPred(id){
+  if(!confirm('この予想を削除しますか？'))return;
+  try{
+    await sbFetch(`ohtani_predictions?id=eq.${id}`,{method:'DELETE'});
+    showToast('削除しました');
+    await loadOhtaniPredictions();
+  }catch(e){showToastError('削除に失敗しました');}
+}
+
 // INIT
 (async()=>{
   await loadCustomGames();
   autoSelectGame();
   renderTabs();renderMatchCard();renderAuthBar();renderFormArea();renderAdminLoginArea();loadPredictions();
+  loadOhtaniPredictions();
   setInterval(()=>loadPredictions(true),30000);
 })();
 </script>
