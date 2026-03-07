@@ -491,8 +491,18 @@ async function loadActualScore(){
 // ── Actual Score ──
 async function renderActualScoreArea(preds){
   const el=document.getElementById('actualScoreArea');
-  if(!isAdmin){el.innerHTML='';return;}
   const actual=await loadActualScore();
+  if(!isAdmin){
+    el.innerHTML=actual?`
+      <div class="actual-section" style="margin:0 16px 16px;">
+        <div class="actual-title">確定スコア</div>
+        <div class="actual-result">
+          <div class="actual-result-score">🇯🇵 ${actual.jp} — ${actual.opp}</div>
+          <div class="actual-result-label">試合結果</div>
+        </div>
+      </div>`:'';
+    return;
+  }
   el.innerHTML=`
     <div class="actual-section" style="margin:0 16px 16px;">
       <div class="actual-title">実際のスコアを入力</div>
