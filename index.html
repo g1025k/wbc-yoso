@@ -581,7 +581,7 @@ async function renderRanking(){
     const sorted=Object.values(map).sort((a,b)=>b.wins-a.wins||b.total-a.total||a.name.localeCompare(b.name));
     const medals=['🥇','🥈','🥉'];
     const rankColors=['gold','silver','bronze'];
-    const gameLabels={g0:'3/6',g1:'3/7',g2:'3/8'};
+    const gameLabels=Object.fromEntries(GAMES.map(g=>[g.id,g.date]));
     el.innerHTML=`
       <div class="ranking-section">
         <div class="ranking-title">🏆 総合ランキング</div>
