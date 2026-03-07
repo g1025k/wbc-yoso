@@ -224,9 +224,8 @@ let currentGame='g0', isAdmin=false, countdownTimer=null;
 function getDeadline(game){const s=localStorage.getItem('wbc_deadline_'+game.id);return s?new Date(s):game.deadline;}
 function toLocalDatetimeValue(d){const pad=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;}
 function saveDeadline(gameId){const val=document.getElementById('dl_'+gameId)?.value;if(!val){showToastError('日時を選択してください');return;}localStorage.setItem('wbc_deadline_'+gameId,new Date(val).toISOString());renderDeadlineBadge();renderFormArea();showToast('✅ 締切を更新しました');}
-function loadCustomGames(){try{const s=localStorage.getItem('wbc_custom_games');if(s){JSON.parse(s).forEach(g=>{if(!GAMES.find(x=>x.id===g.id))GAMES.push({id:g.id,date:g.date,time:g.time,opp:g.opp,flag:g.flag,sub:g.sub,open:new Date(g.openISO),deadline:new Date(g.deadlineISO),custom:true});});}}catch(e){}}
-loadCustomGames();
-function addCustomGame(){
+async function loadCustomGames(){try{const rows=await sbFetch('custom_games');if(rows){rows.forEach(g=>{if(!GAMES.find(x=>x.id===g.id))GAMES.push({id:g.id,date:g.date,time:g.time,opp:g.opp,flag:g.flag,sub:g.sub,open:new Date(g.open_iso),deadline:new Date(g.deadline_iso),custom:true});});}}catch(e){}}
+async function addCustomGame(){
   const flag=(document.getElementById('ag_flag')?.value||'').trim();
   const opp=(document.getElementById('ag_opp')?.value||'').trim();
   const sub=(document.getElementById('ag_sub')?.value||'').trim();
@@ -236,24 +235,29 @@ function addCustomGame(){
   const dl=new Date(dlVal);
   const days=['日','月','火','水','木','金','土'];
   const id='gc_'+Date.now();
-  const newGame={id,date:`${dl.getMonth()+1}/${dl.getDate()}(${days[dl.getDay()]})`,time:timeVal,opp,flag:flag||'🏳️',sub:sub||opp.toUpperCase(),open:new Date('2026-03-01T00:00:00+09:00'),deadline:dl,custom:true};
-  GAMES.push(newGame);
-  const saves=JSON.parse(localStorage.getItem('wbc_custom_games')||'[]');
-  saves.push({id,date:newGame.date,time:timeVal,opp,flag:newGame.flag,sub:newGame.sub,openISO:newGame.open.toISOString(),deadlineISO:dl.toISOString(),custom:true});
-  localStorage.setItem('wbc_custom_games',JSON.stringify(saves));
-  currentGame=id;
-  renderTabs();renderMatchCard();renderFormArea();renderAdminLoginArea();loadPredictions();
-  showToast('✅ 試合を追加しました');
+  const date=`${dl.getMonth()+1}/${dl.getDate()}(${days[dl.getDay()]})`;
+  const flag2=flag||'🏳️';
+  const sub2=sub||opp.toUpperCase();
+  const open_iso=new Date('2026-03-01T00:00:00+09:00').toISOString();
+  const deadline_iso=dl.toISOString();
+  try{
+    await sbFetch('custom_games',{method:'POST',prefer:'return=minimal',body:JSON.stringify({id,date,time:timeVal,opp,flag:flag2,sub:sub2,open_iso,deadline_iso})});
+    GAMES.push({id,date,time:timeVal,opp,flag:flag2,sub:sub2,open:new Date(open_iso),deadline:dl,custom:true});
+    currentGame=id;
+    renderTabs();renderMatchCard();renderFormArea();renderAdminLoginArea();loadPredictions();
+    showToast('✅ 試合を追加しました');
+  }catch(e){showToastError('試合の追加に失敗しました');}
 }
-function deleteCustomGame(id){
+async function deleteCustomGame(id){
   const idx=GAMES.findIndex(g=>g.id===id);
   if(idx<0)return;
-  GAMES.splice(idx,1);
-  const saves=JSON.parse(localStorage.getItem('wbc_custom_games')||'[]').filter(g=>g.id!==id);
-  localStorage.setItem('wbc_custom_games',JSON.stringify(saves));
-  if(currentGame===id)currentGame=GAMES[GAMES.length-1].id;
-  renderTabs();renderMatchCard();renderFormArea();renderAdminLoginArea();loadPredictions();
-  showToast('試合を削除しました');
+  try{
+    await sbFetch(`custom_games?id=eq.${id}`,{method:'DELETE'});
+    GAMES.splice(idx,1);
+    if(currentGame===id)currentGame=GAMES[GAMES.length-1].id;
+    renderTabs();renderMatchCard();renderFormArea();renderAdminLoginArea();loadPredictions();
+    showToast('試合を削除しました');
+  }catch(e){showToastError('削除に失敗しました');}
 }
 
 document.getElementById('heroImg').src=IMG_B64;
@@ -725,9 +729,12 @@ function autoSelectGame(){
 }
 
 // INIT
-autoSelectGame();
-renderTabs();renderMatchCard();renderAuthBar();renderFormArea();renderAdminLoginArea();loadPredictions();
-setInterval(loadPredictions,30000);
+(async()=>{
+  await loadCustomGames();
+  autoSelectGame();
+  renderTabs();renderMatchCard();renderAuthBar();renderFormArea();renderAdminLoginArea();loadPredictions();
+  setInterval(loadPredictions,30000);
+})();
 </script>
 </body>
 </html>
