@@ -750,7 +750,7 @@ async function toggleCrown(id,currentlyWinner){
   }catch(e){showToastError('更新に失敗しました');}
 }
 
-function switchGame(id){currentGame=id;renderTabs();renderMatchCard();renderFormArea();loadPredictions();}
+function switchGame(id){currentGame=id;renderTabs();renderMatchCard();renderFormArea();loadPredictions();loadOhtaniPredictions();}
 function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast show';setTimeout(()=>t.className='toast',2500);}
 function showToastError(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast error show';setTimeout(()=>t.className='toast',2500);}
 function showToastNotify(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast notify show';setTimeout(()=>t.className='toast',4000);}
@@ -788,11 +788,11 @@ function changeORStat(key,delta){
 
 async function saveOhtaniResult(){
   try{
-    const existing=await sbFetch('ohtani_predictions?name=eq.__result__');
+    const existing=await sbFetch(`ohtani_predictions?game_id=eq.${currentGame}&name=eq.__result__`);
     if(existing&&existing.length>0){
       await sbFetch(`ohtani_predictions?id=eq.${existing[0].id}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify(ohtaniResultVals)});
     }else{
-      await sbFetch('ohtani_predictions',{method:'POST',prefer:'return=minimal',body:JSON.stringify({name:'__result__',...ohtaniResultVals})});
+      await sbFetch('ohtani_predictions',{method:'POST',prefer:'return=minimal',body:JSON.stringify({game_id:currentGame,name:'__result__',...ohtaniResultVals})});
     }
     showToast('✅ スコアを確定しました');
     await loadOhtaniPredictions();
@@ -810,7 +810,7 @@ async function loadOhtaniPredictions(){
   const el=document.getElementById('ohtaniArea');
   if(!el) return;
   try{
-    const preds=await sbFetch('ohtani_predictions?order=created_at.asc');
+    const preds=await sbFetch(`ohtani_predictions?game_id=eq.${currentGame}&order=created_at.asc`);
     renderOhtaniSection(preds||[]);
   }catch(e){renderOhtaniSection([]);}
 }
@@ -900,9 +900,9 @@ async function addOhtaniPrediction(){
   const name=localStorage.getItem('wbc_username')||'';
   if(!name){showToastError('名前を入力してください');return;}
   try{
-    const existing=await sbFetch(`ohtani_predictions?name=eq.${encodeURIComponent(name)}`);
+    const existing=await sbFetch(`ohtani_predictions?game_id=eq.${currentGame}&name=eq.${encodeURIComponent(name)}`);
     if(existing&&existing.length>0){showToastError('すでに予想済みです');return;}
-    await sbFetch('ohtani_predictions',{method:'POST',prefer:'return=minimal',body:JSON.stringify({name,...ohtaniVals})});
+    await sbFetch('ohtani_predictions',{method:'POST',prefer:'return=minimal',body:JSON.stringify({game_id:currentGame,name,...ohtaniVals})});
     showToast('大谷予想を登録しました！⚾');
     await loadOhtaniPredictions();
   }catch(e){showToastError('登録に失敗しました');}
