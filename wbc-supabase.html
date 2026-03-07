@@ -224,6 +224,37 @@ let currentGame='g0', isAdmin=false, countdownTimer=null;
 function getDeadline(game){const s=localStorage.getItem('wbc_deadline_'+game.id);return s?new Date(s):game.deadline;}
 function toLocalDatetimeValue(d){const pad=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;}
 function saveDeadline(gameId){const val=document.getElementById('dl_'+gameId)?.value;if(!val){showToastError('日時を選択してください');return;}localStorage.setItem('wbc_deadline_'+gameId,new Date(val).toISOString());renderDeadlineBadge();renderFormArea();showToast('✅ 締切を更新しました');}
+function loadCustomGames(){try{const s=localStorage.getItem('wbc_custom_games');if(s){JSON.parse(s).forEach(g=>{if(!GAMES.find(x=>x.id===g.id))GAMES.push({id:g.id,date:g.date,time:g.time,opp:g.opp,flag:g.flag,sub:g.sub,open:new Date(g.openISO),deadline:new Date(g.deadlineISO),custom:true});});}}catch(e){}}
+loadCustomGames();
+function addCustomGame(){
+  const flag=(document.getElementById('ag_flag')?.value||'').trim();
+  const opp=(document.getElementById('ag_opp')?.value||'').trim();
+  const sub=(document.getElementById('ag_sub')?.value||'').trim();
+  const timeVal=(document.getElementById('ag_time')?.value||'19:00').trim();
+  const dlVal=document.getElementById('ag_dl')?.value;
+  if(!opp||!dlVal){showToastError('対戦相手と締切日時は必須です');return;}
+  const dl=new Date(dlVal);
+  const days=['日','月','火','水','木','金','土'];
+  const id='gc_'+Date.now();
+  const newGame={id,date:`${dl.getMonth()+1}/${dl.getDate()}(${days[dl.getDay()]})`,time:timeVal,opp,flag:flag||'🏳️',sub:sub||opp.toUpperCase(),open:new Date('2026-03-01T00:00:00+09:00'),deadline:dl,custom:true};
+  GAMES.push(newGame);
+  const saves=JSON.parse(localStorage.getItem('wbc_custom_games')||'[]');
+  saves.push({id,date:newGame.date,time:timeVal,opp,flag:newGame.flag,sub:newGame.sub,openISO:newGame.open.toISOString(),deadlineISO:dl.toISOString(),custom:true});
+  localStorage.setItem('wbc_custom_games',JSON.stringify(saves));
+  currentGame=id;
+  renderTabs();renderMatchCard();renderFormArea();renderAdminLoginArea();loadPredictions();
+  showToast('✅ 試合を追加しました');
+}
+function deleteCustomGame(id){
+  const idx=GAMES.findIndex(g=>g.id===id);
+  if(idx<0)return;
+  GAMES.splice(idx,1);
+  const saves=JSON.parse(localStorage.getItem('wbc_custom_games')||'[]').filter(g=>g.id!==id);
+  localStorage.setItem('wbc_custom_games',JSON.stringify(saves));
+  if(currentGame===id)currentGame=GAMES[GAMES.length-1].id;
+  renderTabs();renderMatchCard();renderFormArea();renderAdminLoginArea();loadPredictions();
+  showToast('試合を削除しました');
+}
 
 document.getElementById('heroImg').src=IMG_B64;
 
@@ -550,7 +581,7 @@ async function renderRanking(){
     const sorted=Object.values(map).sort((a,b)=>b.wins-a.wins||b.total-a.total||a.name.localeCompare(b.name));
     const medals=['🥇','🥈','🥉'];
     const rankColors=['gold','silver','bronze'];
-    const gameLabels={g0:'3/6',g1:'3/7',g2:'3/8'};
+    const gameLabels=Object.fromEntries(GAMES.map(g=>[g.id,g.date]));
     el.innerHTML=`
       <div class="ranking-section">
         <div class="ranking-title">🏆 総合ランキング</div>
@@ -582,19 +613,45 @@ async function renderRanking(){
 function renderAdminLoginArea(){
   const el=document.getElementById('adminLoginArea');
   if(isAdmin){
+    const inp='background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:#fff;padding:5px 8px;font-size:12px;font-family:\'Noto Sans JP\',sans-serif;';
     const rows=GAMES.map(g=>{
       const dl=getDeadline(g);
       const val=toLocalDatetimeValue(dl);
       return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
         <span style="font-size:12px;color:var(--gold);min-width:60px;">${g.date}</span>
-        <input type="datetime-local" id="dl_${g.id}" value="${val}" style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:#fff;padding:5px 8px;font-size:12px;font-family:'Noto Sans JP',sans-serif;">
+        <input type="datetime-local" id="dl_${g.id}" value="${val}" style="flex:1;${inp}">
         <button onclick="saveDeadline('${g.id}')" style="background:var(--gold);border:none;border-radius:8px;color:#1a1000;font-weight:700;font-size:11px;padding:6px 10px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">保存</button>
       </div>`;
     }).join('');
+    const gameList=GAMES.map(g=>`
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.06);">
+        <span style="font-size:12px;">${g.flag} ${g.date} vs ${g.opp}</span>
+        ${g.custom?`<button onclick="deleteCustomGame('${g.id}')" style="background:rgba(255,80,80,.2);border:1px solid rgba(255,80,80,.4);border-radius:6px;color:#ff8080;font-size:11px;padding:3px 8px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">削除</button>`:'<span style="font-size:10px;color:var(--muted);">固定</span>'}
+      </div>`).join('');
     el.innerHTML=`
-      <div style="margin:20px 16px 0;padding:16px;border-top:1px solid rgba(255,255,255,.07);border:1px solid rgba(245,194,0,.25);border-radius:14px;background:rgba(245,194,0,.05);">
+      <div style="margin:20px 16px 0;padding:16px;border:1px solid rgba(245,194,0,.25);border-radius:14px;background:rgba(245,194,0,.05);">
         <div style="font-size:13px;font-weight:700;color:var(--gold);margin-bottom:12px;letter-spacing:.05em;">⏱ 締切時刻の設定</div>
         ${rows}
+        <div style="margin-top:16px;border-top:1px solid rgba(255,255,255,.1);padding-top:14px;">
+          <div style="font-size:13px;font-weight:700;color:var(--gold);margin-bottom:10px;">🏟️ 試合の管理</div>
+          ${gameList}
+          <div style="margin-top:12px;">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">▼ 試合を追加</div>
+            <div style="display:flex;gap:6px;margin-bottom:6px;">
+              <input id="ag_flag" placeholder="🇨🇿" maxlength="4" style="width:48px;text-align:center;font-size:16px;${inp}">
+              <input id="ag_opp" placeholder="対戦相手（日本語）" style="flex:1;${inp}">
+              <input id="ag_time" placeholder="19:00" maxlength="5" style="width:58px;text-align:center;${inp}">
+            </div>
+            <div style="margin-bottom:6px;">
+              <input id="ag_sub" placeholder="OPPONENT (英語・省略可)" style="width:100%;box-sizing:border-box;${inp}">
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:11px;color:var(--muted);white-space:nowrap;">締切日時</span>
+              <input type="datetime-local" id="ag_dl" style="flex:1;${inp}">
+              <button onclick="addCustomGame()" style="background:var(--gold);border:none;border-radius:8px;color:#1a1000;font-weight:700;font-size:11px;padding:6px 12px;cursor:pointer;white-space:nowrap;font-family:'Noto Sans JP',sans-serif;">追加</button>
+            </div>
+          </div>
+        </div>
       </div>`;
     return;
   }
@@ -660,9 +717,8 @@ function showToastError(m){const t=document.getElementById('toast');t.textConten
 function autoSelectGame(){
   const now=new Date();
   const today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
-  const dates={g0:new Date('2026-03-06'),g1:new Date('2026-03-07'),g2:new Date('2026-03-08')};
   let selected=null;
-  for(const g of GAMES){if(dates[g.id]>=today){selected=g.id;break;}}
+  for(const g of GAMES){const gd=new Date(g.deadline.getFullYear(),g.deadline.getMonth(),g.deadline.getDate());if(gd>=today){selected=g.id;break;}}
   if(!selected) selected=GAMES[GAMES.length-1].id;
   currentGame=selected;
 }
