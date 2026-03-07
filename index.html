@@ -221,6 +221,9 @@ const GAMES=[
 ];
 const PASSWORD='maru';
 let currentGame='g0', isAdmin=false, countdownTimer=null;
+function getDeadline(game){const s=localStorage.getItem('wbc_deadline_'+game.id);return s?new Date(s):game.deadline;}
+function toLocalDatetimeValue(d){const pad=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;}
+function saveDeadline(gameId){const val=document.getElementById('dl_'+gameId)?.value;if(!val){showToastError('日時を選択してください');return;}localStorage.setItem('wbc_deadline_'+gameId,new Date(val).toISOString());renderDeadlineBadge();renderFormArea();showToast('✅ 締切を更新しました');}
 
 document.getElementById('heroImg').src=IMG_B64;
 
@@ -236,7 +239,7 @@ async function sbFetch(path,opts={}){
 }
 
 // ── Helpers ──
-function isOpen(game){const now=new Date();return now>=game.open&&now<game.deadline;}
+function isOpen(game){const now=new Date();return now>=game.open&&now<getDeadline(game);}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function saveName(v){if(v)localStorage.setItem('wbc_username',v);}
 function restoreName(){const s=localStorage.getItem('wbc_username');const i=document.getElementById('nameInp');if(s&&i)i.value=s;}
@@ -272,7 +275,7 @@ function renderDeadlineBadge(){
   if(countdownTimer){clearInterval(countdownTimer);countdownTimer=null;}
   function tick(){
     const now=new Date();
-    const diff=g.deadline-now;
+    const diff=getDeadline(g)-now;
     if(now<g.open){
       const diffOpen=g.open-now;
       const oh=Math.floor(diffOpen/1000/60/60);
@@ -578,7 +581,23 @@ async function renderRanking(){
 // ── Admin Login Area (bottom) ──
 function renderAdminLoginArea(){
   const el=document.getElementById('adminLoginArea');
-  if(isAdmin){el.innerHTML='';return;}
+  if(isAdmin){
+    const rows=GAMES.map(g=>{
+      const dl=getDeadline(g);
+      const val=toLocalDatetimeValue(dl);
+      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <span style="font-size:12px;color:var(--gold);min-width:60px;">${g.date}</span>
+        <input type="datetime-local" id="dl_${g.id}" value="${val}" style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:#fff;padding:5px 8px;font-size:12px;font-family:'Noto Sans JP',sans-serif;">
+        <button onclick="saveDeadline('${g.id}')" style="background:var(--gold);border:none;border-radius:8px;color:#1a1000;font-weight:700;font-size:11px;padding:6px 10px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">保存</button>
+      </div>`;
+    }).join('');
+    el.innerHTML=`
+      <div style="margin:20px 16px 0;padding:16px;border-top:1px solid rgba(255,255,255,.07);border:1px solid rgba(245,194,0,.25);border-radius:14px;background:rgba(245,194,0,.05);">
+        <div style="font-size:13px;font-weight:700;color:var(--gold);margin-bottom:12px;letter-spacing:.05em;">⏱ 締切時刻の設定</div>
+        ${rows}
+      </div>`;
+    return;
+  }
   el.innerHTML=`
     <div style="margin:20px 16px 0;text-align:center;padding:16px;border-top:1px solid rgba(255,255,255,.07);">
       <button onclick="showAdminLoginBottom()" style="background:none;border:none;color:rgba(255,255,255,.25);font-size:11px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;letter-spacing:.05em;">🔑 管理者ログイン</button>
