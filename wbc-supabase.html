@@ -811,6 +811,8 @@ function renderOhtaniSection(preds){
   const result=preds.find(p=>p.name==='__result__');
   const userPreds=preds.filter(p=>p.name!=='__result__');
   const mine=userPreds.find(p=>p.name===name);
+  const g=GAMES.find(x=>x.id===currentGame);
+  const open=g&&isOpen(g);
   const resultBanner=result?`
     <div style="margin-bottom:14px;padding:12px 14px;border:1px solid rgba(245,194,0,.4);border-radius:12px;background:rgba(245,194,0,.08);text-align:center;">
       <div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px;">🏆 確定スコア</div>
@@ -824,7 +826,8 @@ function renderOhtaniSection(preds){
         <span class="ostat">${result.so}三振</span>
       </div>
     </div>`:'';
-  const formHtml=!mine?`
+  const formHtml=!open?''
+    :!mine?`
     <div class="stat-grid">
       ${OHTANI_STATS.map(s=>`
         <div class="stat-item">

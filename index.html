@@ -822,6 +822,8 @@ function renderOhtaniSection(preds){
   const result=preds.find(p=>p.name==='__result__');
   const userPreds=preds.filter(p=>p.name!=='__result__');
   const mine=userPreds.find(p=>p.name===name);
+  const g=GAMES.find(x=>x.id===currentGame);
+  const open=g&&isOpen(g);
   if(result) OHTANI_STATS.forEach(s=>{ohtaniResultVals[s.key]=result[s.key]||0;});
   const inp='background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:#fff;padding:5px 8px;font-size:12px;font-family:\'Noto Sans JP\',sans-serif;';
   const resultBanner=result?`
@@ -853,7 +855,8 @@ function renderOhtaniSection(preds){
       </div>
       <button class="ohtani-submit" onclick="saveOhtaniResult()" style="background:var(--gold);color:#1a1000;margin-top:8px;">✅ スコアを確定する</button>
     </div>`:'';
-  const formHtml=!mine?`
+  const formHtml=!open?''
+    :!mine?`
     <div class="stat-grid">
       ${OHTANI_STATS.map(s=>`
         <div class="stat-item">
