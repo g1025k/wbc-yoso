@@ -108,6 +108,7 @@ body{background:var(--navy);color:var(--white);font-family:'Noto Sans JP',sans-s
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:linear-gradient(135deg,var(--gold),var(--gold2));color:var(--navy);font-weight:900;font-size:13px;padding:12px 24px;border-radius:100px;z-index:999;transition:transform .35s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;box-shadow:0 8px 24px rgba(245,194,0,.4);}
 .toast.show{transform:translateX(-50%) translateY(0);}
 .toast.error{background:linear-gradient(135deg,var(--red),#8a0015);color:#fff;box-shadow:0 8px 24px rgba(204,34,51,.4);}
+.toast.notify{background:linear-gradient(135deg,#1a6fa8,#0d4a7a);color:#fff;box-shadow:0 8px 24px rgba(26,111,168,.5);font-size:14px;}
 
 /* ACTUAL SCORE */
 .actual-section{margin:0 16px 16px;background:rgba(204,34,51,.07);border:1px solid rgba(204,34,51,.3);border-radius:18px;padding:16px 18px;}
@@ -221,6 +222,7 @@ const GAMES=[
 ];
 const PASSWORD='maru';
 let currentGame='g0', isAdmin=false, countdownTimer=null;
+const _seenPredIds={};
 function getDeadline(game){const s=localStorage.getItem('wbc_deadline_'+game.id);return s?new Date(s):game.deadline;}
 function toLocalDatetimeValue(d){const pad=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;}
 function saveDeadline(gameId){const val=document.getElementById('dl_'+gameId)?.value;if(!val){showToastError('日時を選択してください');return;}localStorage.setItem('wbc_deadline_'+gameId,new Date(val).toISOString());renderDeadlineBadge();renderFormArea();showToast('✅ 締切を更新しました');}
@@ -428,10 +430,18 @@ function showAdminLogin(){
 }
 
 // ── Load ──
-async function loadPredictions(){
+async function loadPredictions(notify=false){
   setLoading(true);
   try{
     const rows=await sbFetch(`predictions?game_id=eq.${currentGame}&order=created_at.asc`);
+    if(notify && _seenPredIds[currentGame] !== undefined){
+      const newOnes=(rows||[]).filter(r=>!_seenPredIds[currentGame].has(r.id));
+      if(newOnes.length>0){
+        const names=newOnes.map(r=>r.name).join('、');
+        showToastNotify(`🎉 ${names}さんが予想を登録しました！`);
+      }
+    }
+    _seenPredIds[currentGame]=new Set((rows||[]).map(r=>r.id));
     renderDeadlineBadge();
     renderActualScoreArea(rows||[]);
     renderStats(rows||[]);
@@ -717,6 +727,7 @@ async function toggleCrown(id,currentlyWinner){
 function switchGame(id){currentGame=id;renderTabs();renderMatchCard();renderFormArea();loadPredictions();}
 function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast show';setTimeout(()=>t.className='toast',2500);}
 function showToastError(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast error show';setTimeout(()=>t.className='toast',2500);}
+function showToastNotify(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast notify show';setTimeout(()=>t.className='toast',4000);}
 
 // ── 今日の試合タブを自動選択 ──
 function autoSelectGame(){
@@ -733,7 +744,7 @@ function autoSelectGame(){
   await loadCustomGames();
   autoSelectGame();
   renderTabs();renderMatchCard();renderAuthBar();renderFormArea();renderAdminLoginArea();loadPredictions();
-  setInterval(loadPredictions,30000);
+  setInterval(()=>loadPredictions(true),30000);
 })();
 </script>
 </body>
