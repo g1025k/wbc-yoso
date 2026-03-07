@@ -750,7 +750,7 @@ async function toggleCrown(id,currentlyWinner){
   }catch(e){showToastError('更新に失敗しました');}
 }
 
-function switchGame(id){currentGame=id;renderTabs();renderMatchCard();renderFormArea();loadPredictions();}
+function switchGame(id){currentGame=id;renderTabs();renderMatchCard();renderFormArea();loadPredictions();loadOhtaniPredictions();}
 function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast show';setTimeout(()=>t.className='toast',2500);}
 function showToastError(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast error show';setTimeout(()=>t.className='toast',2500);}
 function showToastNotify(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast notify show';setTimeout(()=>t.className='toast',4000);}
@@ -789,7 +789,7 @@ async function loadOhtaniPredictions(){
   const el=document.getElementById('ohtaniArea');
   if(!el) return;
   try{
-    const preds=await sbFetch('ohtani_predictions?order=created_at.asc');
+    const preds=await sbFetch(`ohtani_predictions?game_id=eq.${currentGame}&order=created_at.asc`);
     renderOhtaniSection(preds||[]);
   }catch(e){renderOhtaniSection([]);}
 }
@@ -798,7 +798,22 @@ function renderOhtaniSection(preds){
   const el=document.getElementById('ohtaniArea');
   if(!el) return;
   const name=localStorage.getItem('wbc_username')||'';
-  const mine=preds.find(p=>p.name===name);
+  const result=preds.find(p=>p.name==='__result__');
+  const userPreds=preds.filter(p=>p.name!=='__result__');
+  const mine=userPreds.find(p=>p.name===name);
+  const resultBanner=result?`
+    <div style="margin-bottom:14px;padding:12px 14px;border:1px solid rgba(245,194,0,.4);border-radius:12px;background:rgba(245,194,0,.08);text-align:center;">
+      <div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px;">🏆 確定スコア</div>
+      <div class="ohtani-pred-stats" style="justify-content:center;flex-wrap:wrap;gap:6px;">
+        <span class="ostat hit">${result.at_bats}打数 ${result.hits}安打</span>
+        <span class="ostat hr">${result.hr}本塁打</span>
+        <span class="ostat">${result.rbi}打点</span>
+        <span class="ostat">${result.sb}盗塁</span>
+        <span class="ostat">${result.bb}四球</span>
+        <span class="ostat">${result.hbp}死球</span>
+        <span class="ostat">${result.so}三振</span>
+      </div>
+    </div>`:'';
   const formHtml=!mine?`
     <div class="stat-grid">
       ${OHTANI_STATS.map(s=>`
@@ -813,13 +828,15 @@ function renderOhtaniSection(preds){
     </div>
     <button class="ohtani-submit" onclick="addOhtaniPrediction()">⚾ 大谷予想を登録する</button>
   `:`<div style="text-align:center;font-size:12px;color:var(--muted);padding:4px 0 12px;">✅ あなたの予想は登録済みです</div>`;
-  const predsHtml=preds.length===0
+  const predsHtml=userPreds.length===0
     ?'<div class="empty-pred">まだ予想がありません</div>'
-    :preds.map(p=>`
+    :userPreds.map(p=>{
+      const t=p.created_at?new Date(p.created_at).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Tokyo'}):'';
+      return`
       <div class="ohtani-pred-item">
         <div class="pred-avatar" style="background:linear-gradient(135deg,#1a6fa8,#0d4a7a);border-color:rgba(91,184,245,.3);">${[...p.name][0].toUpperCase()}</div>
         <div style="flex:1;min-width:0;">
-          <div class="ohtani-pred-name">${esc(p.name)}</div>
+          <div class="ohtani-pred-name">${esc(p.name)}${t?`<span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:6px;">${t}</span>`:''}</div>
           <div class="ohtani-pred-stats">
             <span class="ostat hit">${p.at_bats}打数 ${p.hits}安打</span>
             <span class="ostat hr">${p.hr}本塁打</span>
@@ -831,10 +848,11 @@ function renderOhtaniSection(preds){
           </div>
         </div>
         ${isAdmin?`<button class="delete-btn" onclick="deleteOhtaniPred('${p.id}')">🗑</button>`:''}
-      </div>`).join('');
+      </div>`;}).join('');
   el.innerHTML=`
     <div class="ohtani-section">
       <div class="ohtani-title">⚾ 大谷翔平 スペシャル予想</div>
+      ${resultBanner}
       ${formHtml}
       <div class="ohtani-preds">${predsHtml}</div>
     </div>`;
@@ -844,9 +862,9 @@ async function addOhtaniPrediction(){
   const name=localStorage.getItem('wbc_username')||'';
   if(!name){showToastError('名前を入力してください');return;}
   try{
-    const existing=await sbFetch(`ohtani_predictions?name=eq.${encodeURIComponent(name)}`);
+    const existing=await sbFetch(`ohtani_predictions?game_id=eq.${currentGame}&name=eq.${encodeURIComponent(name)}`);
     if(existing&&existing.length>0){showToastError('すでに予想済みです');return;}
-    await sbFetch('ohtani_predictions',{method:'POST',prefer:'return=minimal',body:JSON.stringify({name,...ohtaniVals})});
+    await sbFetch('ohtani_predictions',{method:'POST',prefer:'return=minimal',body:JSON.stringify({game_id:currentGame,name,...ohtaniVals})});
     showToast('大谷予想を登録しました！⚾');
     await loadOhtaniPredictions();
   }catch(e){showToastError('登録に失敗しました');}
