@@ -242,7 +242,7 @@ const SUPABASE_URL = 'https://vzgeoctqpcdymzxcpyku.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_UXpvIdqk2XCWI0Dxxs33Ow_Zx-q3760';
 
 const GAMES=[
-  {id:'g0',date:'3/6(金)',time:'19:00',opp:'チャイニーズ・タイペイ',flag:'🇹🇼',sub:'CHINESE TAIPEI', open:new Date('2026-03-01T00:00:00+09:00'), deadline:new Date('2026-03-06T22:00:00+09:00')},
+  {id:'g0',date:'3/6(金)',time:'19:00',opp:'チャイニーズ・タイペイ',flag:'🇹🇼',sub:'CHINESE TAIPEI', open:new Date('2026-03-01T00:00:00+09:00'), deadline:new Date('2026-03-06T19:00:00+09:00')},
   {id:'g1',date:'3/7(土)',time:'19:00',opp:'韓国',flag:'🇰🇷',sub:'KOREA', open:new Date('2026-03-01T00:00:00+09:00'), deadline:new Date('2026-03-07T22:00:00+09:00')},
   {id:'g2',date:'3/8(日)',time:'19:00',opp:'オーストラリア',flag:'🇦🇺',sub:'AUSTRALIA', open:new Date('2026-03-01T00:00:00+09:00'), deadline:new Date('2026-03-08T22:00:00+09:00')},
 ];
@@ -491,8 +491,18 @@ async function loadActualScore(){
 // ── Actual Score ──
 async function renderActualScoreArea(preds){
   const el=document.getElementById('actualScoreArea');
-  if(!isAdmin){el.innerHTML='';return;}
   const actual=await loadActualScore();
+  if(!isAdmin){
+    el.innerHTML=actual?`
+      <div class="actual-section" style="margin:0 16px 16px;">
+        <div class="actual-title">確定スコア</div>
+        <div class="actual-result">
+          <div class="actual-result-score">🇯🇵 ${actual.jp} — ${actual.opp}</div>
+          <div class="actual-result-label">試合結果</div>
+        </div>
+      </div>`:'';
+    return;
+  }
   el.innerHTML=`
     <div class="actual-section" style="margin:0 16px 16px;">
       <div class="actual-title">実際のスコアを入力</div>
@@ -801,6 +811,8 @@ function renderOhtaniSection(preds){
   const result=preds.find(p=>p.name==='__result__');
   const userPreds=preds.filter(p=>p.name!=='__result__');
   const mine=userPreds.find(p=>p.name===name);
+  const g=GAMES.find(x=>x.id===currentGame);
+  const open=g&&isOpen(g);
   const resultBanner=result?`
     <div style="margin-bottom:14px;padding:12px 14px;border:1px solid rgba(245,194,0,.4);border-radius:12px;background:rgba(245,194,0,.08);text-align:center;">
       <div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px;">🏆 確定スコア</div>
@@ -814,7 +826,8 @@ function renderOhtaniSection(preds){
         <span class="ostat">${result.so}三振</span>
       </div>
     </div>`:'';
-  const formHtml=!mine?`
+  const formHtml=!open?''
+    :!mine?`
     <div class="stat-grid">
       ${OHTANI_STATS.map(s=>`
         <div class="stat-item">
