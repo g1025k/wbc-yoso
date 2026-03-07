@@ -644,8 +644,8 @@ async function renderRanking(){
       if(p.is_winner) map[p.name].wins++;
       if(dist!==null) map[p.name].closeness+=dist;
     });
-    const sorted=Object.values(map).sort((a,b)=>b.wins-a.wins||a.closeness-b.closeness||b.total-a.total||a.name.localeCompare(b.name));
-    sorted.forEach((p,i)=>{p.rank=i===0?1:(p.wins===sorted[i-1].wins&&p.closeness===sorted[i-1].closeness&&p.total===sorted[i-1].total?sorted[i-1].rank:i+1);});
+    const sorted=Object.values(map).sort((a,b)=>b.wins-a.wins||b.total-a.total);
+    sorted.forEach((p,i)=>{p.rank=i===0?1:(p.wins===sorted[i-1].wins&&p.total===sorted[i-1].total?sorted[i-1].rank:i+1);});
     const medals={1:'🥇',2:'🥈',3:'🥉'};
     const rankColors={1:'gold',2:'silver',3:'bronze'};
     const gameLabels=Object.fromEntries(GAMES.map(g=>[g.id,g.date]));
@@ -670,7 +670,6 @@ async function renderRanking(){
             <div style="text-align:right;flex-shrink:0;">
               <div class="rank-score">${p.wins}<span style="font-size:12px;color:var(--muted);">/${p.total}</span></div>
               <div class="rank-label">正解/参加</div>
-              ${hasAnyActual?`<div style="font-size:10px;color:var(--muted);margin-top:2px;">差合計 ${p.closeness}</div>`:''}
             </div>
           </div>`;
         }).join('')}
