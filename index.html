@@ -869,11 +869,13 @@ function renderOhtaniSection(preds){
   `:`<div style="text-align:center;font-size:12px;color:var(--muted);padding:4px 0 12px;">✅ あなたの予想は登録済みです</div>`;
   const predsHtml=userPreds.length===0
     ?'<div class="empty-pred">まだ予想がありません</div>'
-    :userPreds.map(p=>`
+    :userPreds.map(p=>{
+      const t=p.created_at?new Date(p.created_at).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Tokyo'}):'';
+      return`
       <div class="ohtani-pred-item">
         <div class="pred-avatar" style="background:linear-gradient(135deg,#1a6fa8,#0d4a7a);border-color:rgba(91,184,245,.3);">${[...p.name][0].toUpperCase()}</div>
         <div style="flex:1;min-width:0;">
-          <div class="ohtani-pred-name">${esc(p.name)}</div>
+          <div class="ohtani-pred-name">${esc(p.name)}${t?`<span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:6px;">${t}</span>`:''}</div>
           <div class="ohtani-pred-stats">
             <span class="ostat hit">${p.at_bats}打数 ${p.hits}安打</span>
             <span class="ostat hr">${p.hr}本塁打</span>
@@ -885,7 +887,7 @@ function renderOhtaniSection(preds){
           </div>
         </div>
         ${isAdmin?`<button class="delete-btn" onclick="deleteOhtaniPred('${p.id}')">🗑</button>`:''}
-      </div>`).join('');
+      </div>`}).join('');
   el.innerHTML=`
     <div class="ohtani-section">
       <div class="ohtani-title">⚾ 大谷翔平 スペシャル予想</div>
