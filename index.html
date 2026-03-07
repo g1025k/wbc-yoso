@@ -578,14 +578,15 @@ async function renderRanking(){
       map[p.name].games[p.game_id]={jp:p.jp,opp:p.opp,winner:p.is_winner};
       if(p.is_winner) map[p.name].wins++;
     });
-    const sorted=Object.values(map).sort((a,b)=>b.wins-a.wins||b.total-a.total||a.name.localeCompare(b.name));
-    const medals=['🥇','🥈','🥉'];
-    const rankColors=['gold','silver','bronze'];
+    const sorted=Object.values(map).sort((a,b)=>b.wins-a.wins||a.name.localeCompare(b.name));
+    sorted.forEach((p,i)=>{p.rank=i===0?1:(p.wins===sorted[i-1].wins?sorted[i-1].rank:i+1);});
+    const medals={1:'🥇',2:'🥈',3:'🥉'};
+    const rankColors={1:'gold',2:'silver',3:'bronze'};
     const gameLabels=Object.fromEntries(GAMES.map(g=>[g.id,g.date]));
     el.innerHTML=`
       <div class="ranking-section">
         <div class="ranking-title">🏆 総合ランキング</div>
-        ${sorted.map((p,i)=>{
+        ${sorted.map((p)=>{
           const gameDetail=GAMES.map(g=>{
             const gd=p.games[g.id];
             if(!gd) return `<span class="game-badge miss">─ ${gameLabels[g.id]}</span>`;
@@ -593,7 +594,7 @@ async function renderRanking(){
             return `<span class="game-badge played">${gameLabels[g.id]} ${gd.jp}-${gd.opp}</span>`;
           }).join('');
           return `<div class="rank-item">
-            <div class="rank-num ${rankColors[i]||''}">${medals[i]||i+1}</div>
+            <div class="rank-num ${rankColors[p.rank]||''}">${medals[p.rank]||p.rank}</div>
             <div class="rank-avatar">${[...p.name][0].toUpperCase()}</div>
             <div class="rank-info">
               <div class="rank-name">${esc(p.name)}</div>
