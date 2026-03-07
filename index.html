@@ -578,8 +578,8 @@ async function renderRanking(){
       map[p.name].games[p.game_id]={jp:p.jp,opp:p.opp,winner:p.is_winner};
       if(p.is_winner) map[p.name].wins++;
     });
-    const sorted=Object.values(map).sort((a,b)=>b.wins-a.wins||a.name.localeCompare(b.name));
-    sorted.forEach((p,i)=>{p.rank=i===0?1:(p.wins===sorted[i-1].wins?sorted[i-1].rank:i+1);});
+    const sorted=Object.values(map).sort((a,b)=>b.wins-a.wins||b.total-a.total||a.name.localeCompare(b.name));
+    sorted.forEach((p,i)=>{p.rank=i===0?1:(p.wins===sorted[i-1].wins&&p.total===sorted[i-1].total?sorted[i-1].rank:i+1);});
     const medals={1:'🥇',2:'🥈',3:'🥉'};
     const rankColors={1:'gold',2:'silver',3:'bronze'};
     const gameLabels=Object.fromEntries(GAMES.map(g=>[g.id,g.date]));
