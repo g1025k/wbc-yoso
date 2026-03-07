@@ -516,7 +516,12 @@ async function saveActualScore(){
   if(jp===''||opp===''){showToastError('スコアを入力してください');return;}
   const jpN=parseInt(jp),oppN=parseInt(opp);
   try{
-    await sbFetch('actual_scores',{method:'POST',prefer:'resolution=merge-duplicates,return=minimal',body:JSON.stringify({game_id:currentGame,jp:jpN,opp:oppN})});
+    const existingScore=await sbFetch(`actual_scores?game_id=eq.${currentGame}`);
+    if(existingScore&&existingScore.length>0){
+      await sbFetch(`actual_scores?game_id=eq.${currentGame}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({jp:jpN,opp:oppN})});
+    }else{
+      await sbFetch('actual_scores',{method:'POST',prefer:'return=minimal',body:JSON.stringify({game_id:currentGame,jp:jpN,opp:oppN})});
+    }
     const preds=await sbFetch(`predictions?game_id=eq.${currentGame}`);
     for(const p of preds){
       const correct=p.jp===jpN&&p.opp===oppN;
