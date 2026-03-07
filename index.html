@@ -609,7 +609,10 @@ function renderList(preds){
     const isLoser=p.is_loser;
     const crownBtn=isAdmin?`<button class="crown-btn ${isWinner?'crowned':''}" onclick="toggleCrown('${p.id}',${isWinner})" title="${isWinner?'王冠を外す':'王冠をつける'}">${isWinner?'👑':'☆'}</button>`:'';
     const missBtn=isAdmin&&!isWinner?`<button class="miss-btn ${isLoser?'missed':''}" onclick="toggleLoser('${p.id}',${isLoser})" title="${isLoser?'外れを外す':'外れにする'}">😭</button>`:'';
-    const editBtn=isAdmin?`<button class="edit-btn" onclick="openEditModal('${p.id}',${p.jp},${p.opp},'${esc(p.name)}')" title="編集">✏️</button>`:'';
+    const myName=localStorage.getItem('wbc_username')||'';
+    const isOwner=myName&&myName===p.name;
+    const editBtn=(isAdmin||isOwner)?`<button class="edit-btn" onclick="openEditModal('${p.id}',${p.jp},${p.opp},'${esc(p.name)}')" title="編集">✏️</button>`:'';
+
     const delBtn=isAdmin?`<button class="delete-btn" onclick="deletePred('${p.id}')" title="削除">✕</button>`:'';
     const loserBadge=isLoser?'<span class="loser-badge">😭 残念！</span>':'';
     const avatar=isWinner?`<div class="winner-crown">👑</div>`:isLoser?`<div class="loser-icon">😭</div>`:`<div class="pred-avatar">${init}</div>`;
