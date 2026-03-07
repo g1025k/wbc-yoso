@@ -159,6 +159,10 @@ body{background:var(--navy);color:var(--white);font-family:'Noto Sans JP',sans-s
 /* EDIT MODAL */
 .edit-btn{background:none;border:1px solid rgba(245,194,0,.25);border-radius:8px;color:var(--gold);font-size:14px;cursor:pointer;padding:4px 7px;opacity:.5;transition:all .2s;flex-shrink:0;}
 .edit-btn:active{opacity:1;}
+.allow-edit-btn{background:none;border:1px solid rgba(100,200,100,.3);border-radius:8px;color:#88dd88;font-size:14px;cursor:pointer;padding:4px 7px;opacity:.5;transition:all .2s;flex-shrink:0;}
+.allow-edit-btn.allowed{border-color:rgba(100,200,100,.7);opacity:1;background:rgba(100,200,100,.12);}
+.allow-edit-btn:active{opacity:1;}
+.pred-edit-time{font-size:10px;color:rgba(245,194,0,.6);}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;}
 .modal-box{background:var(--navy2);border:1px solid var(--border);border-radius:20px;padding:24px;width:100%;max-width:320px;}
 
@@ -611,17 +615,22 @@ function renderList(preds){
     const missBtn=isAdmin&&!isWinner?`<button class="miss-btn ${isLoser?'missed':''}" onclick="toggleLoser('${p.id}',${isLoser})" title="${isLoser?'外れを外す':'外れにする'}">😭</button>`:'';
     const myName=localStorage.getItem('wbc_username')||'';
     const isOwner=myName&&myName===p.name;
-    const editBtn=(isAdmin||isOwner)?`<button class="edit-btn" onclick="openEditModal('${p.id}',${p.jp},${p.opp},'${esc(p.name)}')" title="編集">✏️</button>`:'';
-
+    const game=GAMES.find(g=>g.id===p.game_id);
+    const gameOpen=game?new Date()<getDeadline(game):false;
+    const editAllowed=!!p.edit_allowed;
+    const canOwnerEdit=isOwner&&(gameOpen||editAllowed);
+    const editBtn=(isAdmin||canOwnerEdit)?`<button class="edit-btn" onclick="openEditModal('${p.id}',${p.jp},${p.opp},'${esc(p.name)}','${esc(JSON.stringify(p.edit_log||[]))}')" title="編集">✏️</button>`:'';
+    const allowBtn=isAdmin&&!gameOpen?`<button class="allow-edit-btn ${editAllowed?'allowed':''}" onclick="toggleEditAllowed('${p.id}',${editAllowed})" title="${editAllowed?'編集許可を取り消す':'本人に編集を許可する'}">${editAllowed?'🔓':'🔐'}</button>`:'';
     const delBtn=isAdmin?`<button class="delete-btn" onclick="deletePred('${p.id}')" title="削除">✕</button>`:'';
+    const editTimes=(p.edit_log||[]).map(ts=>{const ed=new Date(ts);return `<div class="pred-edit-time">✏️ ${(ed.getMonth()+1)+'/'+ed.getDate()+' '+ed.getHours().toString().padStart(2,'0')+':'+ed.getMinutes().toString().padStart(2,'0')} 編集</div>`;}).join('');
     const loserBadge=isLoser?'<span class="loser-badge">😭 残念！</span>':'';
     const avatar=isWinner?`<div class="winner-crown">👑</div>`:isLoser?`<div class="loser-icon">😭</div>`:`<div class="pred-avatar">${init}</div>`;
     const itemClass=isWinner?'winner':isLoser?'loser':'';
     return `<div class="pred-item ${itemClass}">
       ${avatar}
-      <div class="pred-info"><div class="pred-name">${esc(p.name)}</div>${winnerBadge||loserBadge||win}<div class="pred-time">${t}</div></div>
+      <div class="pred-info"><div class="pred-name">${esc(p.name)}</div>${winnerBadge||loserBadge||win}<div class="pred-time">${t}</div>${editTimes}</div>
       <div class="pred-score"><span class="s-japan">${p.jp}</span><span class="s-sep">—</span><span class="s-opp">${p.opp}</span></div>
-      ${crownBtn}${missBtn}${editBtn}${delBtn}</div>`;
+      ${crownBtn}${missBtn}${allowBtn}${editBtn}${delBtn}</div>`;
   }).join('');
 }
 
@@ -797,8 +806,10 @@ function autoSelectGame(){
 
 // ── Edit Prediction Modal ──
 let _editingPredId=null;
-function openEditModal(id,jp,opp,name){
+let _editingEditLog=[];
+function openEditModal(id,jp,opp,name,editLogJson){
   _editingPredId=id;
+  try{_editingEditLog=JSON.parse(editLogJson||'[]');}catch{_editingEditLog=[];}
   document.getElementById('editModalName').textContent=name+' さんの予想を編集';
   document.getElementById('editJp').value=jp;
   document.getElementById('editOpp').value=opp;
@@ -807,15 +818,23 @@ function openEditModal(id,jp,opp,name){
 function closeEditModal(){
   document.getElementById('editModal').style.display='none';
   _editingPredId=null;
+  _editingEditLog=[];
 }
 async function saveEditPred(){
   const jp=document.getElementById('editJp')?.value;
   const opp=document.getElementById('editOpp')?.value;
   if(jp===''||opp===''){showToastError('スコアを入力してください');return;}
   try{
-    await sbFetch(`predictions?id=eq.${_editingPredId}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({jp:parseInt(jp),opp:parseInt(opp),is_winner:false,is_loser:false})});
+    const newLog=[..._editingEditLog, new Date().toISOString()];
+    await sbFetch(`predictions?id=eq.${_editingPredId}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({jp:parseInt(jp),opp:parseInt(opp),is_winner:false,is_loser:false,edit_log:newLog})});
     closeEditModal();
     showToast('✅ 予想を更新しました');
+    await loadPredictions();
+  }catch(e){showToastError('更新に失敗しました');}
+}
+async function toggleEditAllowed(id,current){
+  try{
+    await sbFetch(`predictions?id=eq.${id}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({edit_allowed:!current})});
     await loadPredictions();
   }catch(e){showToastError('更新に失敗しました');}
 }
