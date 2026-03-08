@@ -859,22 +859,39 @@ async function toggleEditAllowed(id,current){
 
 // ── Presence (閲覧中ユーザー) ──
 let _presenceChannel=null;
+let _presenceTimer=null;
 function initPresence(){
   if(typeof supabase==='undefined'||!supabase.createClient)return;
   const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
-  _presenceChannel=sb.channel('viewers',{config:{presence:{key:''}}});
-  _presenceChannel
-    .on('presence',{event:'sync'},()=>{
-      const state=_presenceChannel.presenceState();
-      const users=Object.values(state).flat().map(u=>u.name).filter(Boolean);
-      renderViewersBar(users);
-    })
-    .subscribe(async(status)=>{
-      if(status==='SUBSCRIBED'&&!isAdmin){
-        const name=localStorage.getItem('wbc_username')||'名前未入力';
-        await _presenceChannel.track({name});
-      }
-    });
+  function connect(){
+    if(_presenceChannel){try{sb.removeChannel(_presenceChannel);}catch(e){}}
+    _presenceChannel=sb.channel('viewers',{config:{presence:{key:''}}});
+    _presenceChannel
+      .on('presence',{event:'sync'},()=>{
+        const state=_presenceChannel.presenceState();
+        const users=Object.values(state).flat().map(u=>u.name).filter(Boolean);
+        renderViewersBar(users);
+      })
+      .subscribe(async(status)=>{
+        if(status==='SUBSCRIBED'&&!isAdmin){
+          const name=localStorage.getItem('wbc_username')||'名前未入力';
+          await _presenceChannel.track({name});
+        }
+        if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
+          setTimeout(connect,3000);
+        }
+      });
+  }
+  connect();
+  // 定期的にtrackし直してpresenceを維持
+  if(_presenceTimer)clearInterval(_presenceTimer);
+  _presenceTimer=setInterval(async()=>{
+    if(isAdmin||!_presenceChannel)return;
+    try{
+      const name=localStorage.getItem('wbc_username')||'名前未入力';
+      await _presenceChannel.track({name});
+    }catch(e){}
+  },30000);
 }
 function renderViewersBar(users){
   const el=document.getElementById('viewersArea');
