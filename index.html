@@ -765,6 +765,8 @@ function showAdminLoginBottom(){
 
 // ── CRUD ──
 async function addPrediction(){
+  const g=GAMES.find(x=>x.id===currentGame);
+  if(!g||!isOpen(g)){showToastError('この試合の予想受付は締め切りました');renderFormArea();return;}
   const name=(document.getElementById('nameInp')?.value||'').trim().replace(/^[\s　]+|[\s　]+$/g,'');
   const jp=document.getElementById('scoreJp')?.value;
   const opp=document.getElementById('scoreOpp')?.value;
