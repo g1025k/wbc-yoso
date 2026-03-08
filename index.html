@@ -163,6 +163,8 @@ body{background:var(--navy);color:var(--white);font-family:'Noto Sans JP',sans-s
 .allow-edit-btn{background:none;border:1px solid rgba(100,200,100,.3);border-radius:8px;color:#88dd88;font-size:14px;cursor:pointer;padding:4px 7px;opacity:.5;transition:all .2s;flex-shrink:0;}
 .allow-edit-btn.allowed{border-color:rgba(100,200,100,.7);opacity:1;background:rgba(100,200,100,.12);}
 .allow-edit-btn:active{opacity:1;}
+.admin-btns{display:flex;gap:6px;justify-content:flex-end;width:100%;margin-top:4px;}
+.pred-item.has-admin-btns{flex-wrap:wrap;}
 .pred-edit-time{font-size:10px;color:rgba(245,194,0,.6);}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;}
 .modal-box{background:var(--navy2);border:1px solid var(--border);border-radius:20px;padding:24px;width:100%;max-width:320px;}
@@ -643,12 +645,14 @@ function renderList(preds){
     const editTimes=(p.edit_log||[]).map(ts=>{const ed=new Date(ts);return `<div class="pred-edit-time">✏️ ${(ed.getMonth()+1)+'/'+ed.getDate()+' '+ed.getHours().toString().padStart(2,'0')+':'+ed.getMinutes().toString().padStart(2,'0')} 編集</div>`;}).join('');
     const loserBadge=isLoser?'<span class="loser-badge">😭 残念！</span>':'';
     const avatar=isWinner?`<div class="winner-crown">👑</div>`:isLoser?`<div class="loser-icon">😭</div>`:`<div class="pred-avatar">${init}</div>`;
-    const itemClass=isWinner?'winner':isLoser?'loser':'';
+    const itemClass=(isWinner?'winner':isLoser?'loser':'')+(isAdmin?' has-admin-btns':'');
+    const adminBtns=isAdmin?`<div class="admin-btns">${crownBtn}${missBtn}${allowBtn}${editBtn}${delBtn}</div>`:'';
+    const ownerEditBtn=!isAdmin&&canOwnerEdit?editBtn:'';
     return `<div class="pred-item ${itemClass}">
       ${avatar}
       <div class="pred-info"><div class="pred-name">${esc(p.name)}</div>${winnerBadge||loserBadge||win}<div class="pred-time">${t}</div>${editTimes}</div>
       <div class="pred-score"><span class="s-japan">${p.jp}</span><span class="s-sep">—</span><span class="s-opp">${p.opp}</span></div>
-      ${crownBtn}${missBtn}${allowBtn}${editBtn}${delBtn}</div>`;
+      ${ownerEditBtn}${adminBtns}</div>`;
   }).join('');
 }
 
