@@ -869,12 +869,13 @@ async function toggleEditAllowed(id,current){
 // ── Presence (閲覧中ユーザー) ──
 let _presenceChannel=null;
 let _presenceTimer=null;
+const _presenceKey=Math.random().toString(36).slice(2);
 function initPresence(){
   if(typeof supabase==='undefined'||!supabase.createClient)return;
   const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
   function connect(){
     if(_presenceChannel){try{sb.removeChannel(_presenceChannel);}catch(e){}}
-    _presenceChannel=sb.channel('viewers',{config:{presence:{key:''}}});
+    _presenceChannel=sb.channel('viewers',{config:{presence:{key:_presenceKey}}});
     _presenceChannel
       .on('presence',{event:'sync'},()=>{
         const state=_presenceChannel.presenceState();
