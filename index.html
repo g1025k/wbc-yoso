@@ -907,7 +907,8 @@ function renderViewersBar(users){
   await loadCustomGames();
   autoSelectGame();
   renderTabs();renderMatchCard();renderAuthBar();renderFormArea();renderAdminLoginArea();loadPredictions();
-  setInterval(async()=>{await loadCustomGames();renderDeadlineBadge();renderFormArea();loadPredictions(true);},30000);
+  setInterval(async()=>{await loadCustomGames();renderDeadlineBadge();renderFormArea();},10000);
+  setInterval(async()=>{loadPredictions(true);},30000);
   initPresence();
 })();
 </script>
