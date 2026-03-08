@@ -6,6 +6,7 @@
 <title>侍ジャパン スコア予想</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Zen+Kurenaido&family=Noto+Sans+JP:wght@400;700;900&family=Oswald:wght@700&display=swap');
+
 :root {
   --navy:#08111f;--navy2:#0d1e38;--gold:#f5c200;--gold2:#e8960a;
   --red:#cc2233;--white:#f8f5ee;--muted:#7a8aaa;
@@ -166,7 +167,12 @@ body{background:var(--navy);color:var(--white);font-family:'Noto Sans JP',sans-s
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;}
 .modal-box{background:var(--navy2);border:1px solid var(--border);border-radius:20px;padding:24px;width:100%;max-width:320px;}
 
+.viewers-bar{display:flex;align-items:center;gap:8px;padding:8px 16px;flex-wrap:wrap;}
+.viewers-label{font-size:10px;color:var(--muted);letter-spacing:.08em;white-space:nowrap;}
+.viewer-chip{display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--white);}
+.viewer-dot{width:6px;height:6px;background:#4caf50;border-radius:50%;flex-shrink:0;}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -184,6 +190,7 @@ body{background:var(--navy);color:var(--white);font-family:'Noto Sans JP',sans-s
     <div class="auth-status" id="authStatus">👀 観覧モード</div>
     <button class="auth-btn" id="authBtn" onclick="toggleAuth()">管理者ログイン</button>
   </div>
+  <div id="viewersArea" class="viewers-bar" style="display:none;"></div>
   <a class="schedule-btn" href="https://www.japan-baseball.jp/jp/games/wbc2026/schedule/" target="_blank" rel="noopener">
     ⚾ 侍ジャパン 公式スケジュール・結果を確認
     <span style="font-size:11px;opacity:.6;">↗</span>
@@ -497,12 +504,14 @@ async function loadActualScore(){
 async function renderActualScoreArea(preds){
   const el=document.getElementById('actualScoreArea');
   const actual=await loadActualScore();
+  const g=GAMES.find(x=>x.id===currentGame);
+  const oppFlag=g?g.flag:'';
   if(!isAdmin){
     el.innerHTML=actual?`
       <div class="actual-section" style="margin:0 16px 16px;">
         <div class="actual-title">確定スコア</div>
         <div class="actual-result">
-          <div class="actual-result-score">🇯🇵 ${actual.jp} — ${actual.opp}</div>
+          <div class="actual-result-score">🇯🇵 ${actual.jp} — ${actual.opp} ${oppFlag}</div>
           <div class="actual-result-label">試合結果</div>
         </div>
       </div>`:'';
@@ -512,7 +521,7 @@ async function renderActualScoreArea(preds){
     <div class="actual-section" style="margin:0 16px 16px;">
       <div class="actual-title">実際のスコアを入力</div>
       ${actual?`<div class="actual-result" style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
-        <div><div class="actual-result-score">🇯🇵 ${actual.jp} — ${actual.opp}</div><div class="actual-result-label">現在の登録スコア</div></div>
+        <div><div class="actual-result-score">🇯🇵 ${actual.jp} — ${actual.opp} ${oppFlag}</div><div class="actual-result-label">現在の登録スコア</div></div>
         <button onclick="resetActualScore()" style="background:none;border:1px solid rgba(255,100,100,.4);border-radius:8px;padding:6px 12px;color:#ff8899;font-size:11px;font-family:'Noto Sans JP',sans-serif;cursor:pointer;">🗑️ リセット</button>
       </div>`:''}
       <div class="actual-score-row">
@@ -840,12 +849,41 @@ async function toggleEditAllowed(id,current){
 }
 
 
+// ── Presence (閲覧中ユーザー) ──
+let _presenceChannel=null;
+function initPresence(){
+  if(typeof supabase==='undefined'||!supabase.createClient)return;
+  const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+  _presenceChannel=sb.channel('viewers',{config:{presence:{key:''}}});
+  _presenceChannel
+    .on('presence',{event:'sync'},()=>{
+      const state=_presenceChannel.presenceState();
+      const users=Object.values(state).flat().map(u=>u.name).filter(Boolean);
+      renderViewersBar(users);
+    })
+    .subscribe(async(status)=>{
+      if(status==='SUBSCRIBED'){
+        const name=localStorage.getItem('wbc_username')||'名前未入力';
+        await _presenceChannel.track({name});
+      }
+    });
+}
+function renderViewersBar(users){
+  const el=document.getElementById('viewersArea');
+  if(!el)return;
+  if(users.length===0){el.style.display='none';return;}
+  el.style.display='flex';
+  el.innerHTML=`<span class="viewers-label">👀 今見ている人</span>`
+    +users.map(n=>`<span class="viewer-chip"><span class="viewer-dot"></span>${n}</span>`).join('');
+}
+
 // INIT
 (async()=>{
   await loadCustomGames();
   autoSelectGame();
   renderTabs();renderMatchCard();renderAuthBar();renderFormArea();renderAdminLoginArea();loadPredictions();
   setInterval(()=>loadPredictions(true),30000);
+  initPresence();
 })();
 </script>
 </body>
