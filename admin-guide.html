@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>管理者機能ガイド</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#0d1117;font-family:'Noto Sans JP',sans-serif;color:#fff;padding:32px 20px;min-height:100vh;}
+  .card{background:#1a0a0a;border:1px solid rgba(204,34,51,.3);border-radius:20px;padding:28px 24px;max-width:440px;margin:0 auto;box-shadow:0 8px 40px rgba(0,0,0,.6);}
+  .header{display:flex;align-items:center;gap:10px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .header-icon{font-size:28px;}
+  .header-title{font-size:18px;font-weight:900;letter-spacing:.05em;}
+  .header-sub{font-size:11px;color:#f5c200;letter-spacing:.1em;margin-top:2px;}
+  .section-label{font-size:10px;font-weight:700;letter-spacing:.15em;color:rgba(255,255,255,.35);text-transform:uppercase;margin-bottom:10px;margin-top:20px;}
+  .section-label:first-of-type{margin-top:0;}
+  .row{display:flex;align-items:flex-start;gap:14px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.05);}
+  .row:last-child{border-bottom:none;}
+  .btn-demo{display:flex;align-items:center;justify-content:center;min-width:40px;height:36px;border-radius:8px;font-size:16px;flex-shrink:0;}
+  .btn-crown{background:rgba(245,194,0,.12);border:1px solid rgba(245,194,0,.5);}
+  .btn-loser{background:rgba(204,34,51,.12);border:1px solid rgba(204,34,51,.4);}
+  .btn-lock{background:rgba(100,200,100,.1);border:1px solid rgba(100,200,100,.4);}
+  .btn-edit{background:rgba(245,194,0,.08);border:1px solid rgba(245,194,0,.25);}
+  .btn-del{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.4);font-size:14px;}
+  .btn-score{background:linear-gradient(135deg,#cc2233,#8a0015);border:none;border-radius:10px;padding:0 14px;font-size:12px;font-weight:900;color:#fff;letter-spacing:.03em;white-space:nowrap;height:36px;}
+  .desc{flex:1;}
+  .desc-title{font-size:13px;font-weight:700;margin-bottom:3px;}
+  .desc-body{font-size:11px;color:rgba(255,255,255,.5);line-height:1.6;}
+  .badge-gold{display:inline-block;font-size:10px;font-weight:900;padding:2px 8px;border-radius:20px;background:linear-gradient(135deg,#f5c200,#e8960a);color:#0d1117;margin-right:4px;}
+  .badge-red{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;background:rgba(204,34,51,.2);color:#ff6677;border:1px solid rgba(204,34,51,.3);margin-right:4px;}
+  .footer{margin-top:20px;padding-top:14px;border-top:1px solid rgba(255,255,255,.06);font-size:10px;color:rgba(255,255,255,.2);text-align:center;letter-spacing:.05em;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <span class="header-icon">🔑</span>
+    <div>
+      <div class="header-title">管理者機能ガイド</div>
+      <div class="header-sub">WBC みんなの予想</div>
+    </div>
+  </div>
+
+  <div class="section-label">予想カード — 各ボタンの機能</div>
+
+  <div class="row">
+    <div class="btn-demo btn-crown">☆</div>
+    <div class="desc">
+      <div class="desc-title">王冠をつける / 外す</div>
+      <div class="desc-body">正解者に <span class="badge-gold">👑 正解！</span> バッジをつける。<br>もう一度押すと解除できる。</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="btn-demo btn-loser">😭</div>
+    <div class="desc">
+      <div class="desc-title">外れにする / 解除</div>
+      <div class="desc-body">不正解者に <span class="badge-red">😭 残念！</span> バッジをつける。<br>王冠がついている人には表示されない。</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="btn-demo btn-lock">🔐</div>
+    <div class="desc">
+      <div class="desc-title">本人への編集許可</div>
+      <div class="desc-body">〆切後に特定の人だけ自分の予想を<br>編集できるよう許可する。<br>🔐 未許可 → 🔓 許可済み<br>※〆切前は表示されない</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="btn-demo btn-edit">✏️</div>
+    <div class="desc">
+      <div class="desc-title">予想を直接編集</div>
+      <div class="desc-body">管理者がスコアを書き換えられる。<br>編集履歴が残る。</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="btn-demo btn-del">✕</div>
+    <div class="desc">
+      <div class="desc-title">予想を削除</div>
+      <div class="desc-body">確認ダイアログが出てから削除。<br>取り消しはできないので注意。</div>
+    </div>
+  </div>
+
+  <div class="section-label">試合エリア — 結果入力</div>
+
+  <div class="row">
+    <div class="btn-demo btn-score">👑 確定</div>
+    <div class="desc">
+      <div class="desc-title">実際のスコアを確定</div>
+      <div class="desc-body">日本 vs 相手のスコアを入力して確定すると、<br>一致した予想者に自動で王冠がつく。</div>
+    </div>
+  </div>
+
+  <div class="footer">管理者パスワードは共有しないでね 🔒</div>
+</div>
+</body>
+</html>
