@@ -720,6 +720,8 @@ function renderAdminLoginArea(){
         <span style="font-size:12px;">${g.flag} ${g.date} vs ${g.opp}</span>
         ${g.custom?`<button onclick="deleteCustomGame('${g.id}')" style="background:rgba(255,80,80,.2);border:1px solid rgba(255,80,80,.4);border-radius:6px;color:#ff8080;font-size:11px;padding:3px 8px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">削除</button>`:'<span style="font-size:10px;color:var(--muted);">固定</span>'}
       </div>`).join('');
+    const savedInputs={};
+    for(const id of['ag_flag','ag_opp','ag_time','ag_sub','ag_section','ag_dl']){const f=document.getElementById(id);if(f)savedInputs[id]=f.value;}
     el.innerHTML=`
       <div style="margin:20px 16px 0;padding:16px;border:1px solid rgba(245,194,0,.25);border-radius:14px;background:rgba(245,194,0,.05);">
         <div style="font-size:13px;font-weight:700;color:var(--gold);margin-bottom:12px;letter-spacing:.05em;">⏱ 締切時刻の設定</div>
@@ -748,6 +750,7 @@ function renderAdminLoginArea(){
           </div>
         </div>
       </div>`;
+    for(const[id,v]of Object.entries(savedInputs)){const f=document.getElementById(id);if(f&&v)f.value=v;}
     return;
   }
   el.innerHTML=`
