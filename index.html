@@ -273,12 +273,15 @@ async function addCustomGame(){
   const sub=(document.getElementById('ag_sub')?.value||'').trim();
   const sectionLabel=(document.getElementById('ag_section')?.value||'').trim()||'WBC 一次ラウンド';
   const timeVal=(document.getElementById('ag_time')?.value||'19:00').trim();
+  const dateVal=(document.getElementById('ag_date')?.value||'').trim();
   const dlVal=document.getElementById('ag_dl')?.value;
   if(!opp||!dlVal){showToastError('対戦相手と締切日時は必須です');return;}
   const dl=new Date(dlVal);
   const days=['日','月','火','水','木','金','土'];
   const id='gc_'+Date.now();
-  const date=`${dl.getMonth()+1}/${dl.getDate()}(${days[dl.getDay()]})`;
+  let date;
+  if(dateVal){const gd=new Date(dateVal+'T00:00:00');date=`${gd.getMonth()+1}/${gd.getDate()}(${days[gd.getDay()]})`;}
+  else{date=`${dl.getMonth()+1}/${dl.getDate()}(${days[dl.getDay()]})`;};
   const flag2=flag||'🏳️';
   const sub2=sub||opp.toUpperCase();
   // section_label is encoded in sub field as "SUB|SECTION_LABEL"
@@ -289,7 +292,7 @@ async function addCustomGame(){
     await sbFetch('custom_games',{method:'POST',prefer:'return=minimal',body:JSON.stringify({id,date,time:timeVal,opp,flag:flag2,sub:subEncoded,open_iso,deadline_iso})});
     GAMES.push({id,date,time:timeVal,opp,flag:flag2,sub:sub2,section_label:sectionLabel,open:new Date(open_iso),deadline:dl,custom:true});
     currentGame=id;
-    renderTabs();renderMatchCard();renderFormArea();renderAdminLoginArea();loadPredictions();
+    renderTabs();renderMatchCard();renderDeadlineBadge();renderFormArea();renderAdminLoginArea();loadPredictions();
     showToast('✅ 試合を追加しました');
   }catch(e){showToastError('試合の追加に失敗しました');}
 }
@@ -728,7 +731,7 @@ function renderAdminLoginArea(){
         ${g.custom?`<button onclick="deleteCustomGame('${g.id}')" style="background:rgba(255,80,80,.2);border:1px solid rgba(255,80,80,.4);border-radius:6px;color:#ff8080;font-size:11px;padding:3px 8px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">削除</button>`:'<span style="font-size:10px;color:var(--muted);">固定</span>'}
       </div>`).join('');
     const savedInputs={};
-    for(const id of['ag_flag','ag_opp','ag_time','ag_sub','ag_section','ag_dl']){const f=document.getElementById(id);if(f)savedInputs[id]=f.value;}
+    for(const id of['ag_flag','ag_opp','ag_date','ag_time','ag_sub','ag_section','ag_dl']){const f=document.getElementById(id);if(f)savedInputs[id]=f.value;}
     el.innerHTML=`
       <div style="margin:20px 16px 0;padding:16px;border:1px solid rgba(245,194,0,.25);border-radius:14px;background:rgba(245,194,0,.05);">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
@@ -744,7 +747,11 @@ function renderAdminLoginArea(){
             <div style="display:flex;gap:6px;margin-bottom:6px;">
               <input id="ag_flag" placeholder="🇨🇿" maxlength="4" style="width:48px;text-align:center;font-size:16px;${inp}">
               <input id="ag_opp" placeholder="対戦相手（日本語）" style="flex:1;${inp}">
-              <input id="ag_time" placeholder="19:00" maxlength="5" style="width:58px;text-align:center;${inp}">
+            </div>
+            <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
+              <span style="font-size:11px;color:var(--muted);white-space:nowrap;">試合日時</span>
+              <input type="date" id="ag_date" style="flex:1;${inp}">
+              <input id="ag_time" placeholder="22:10" maxlength="5" style="width:58px;text-align:center;${inp}">
             </div>
             <div style="margin-bottom:6px;">
               <input id="ag_sub" placeholder="OPPONENT (英語・省略可)" style="width:100%;box-sizing:border-box;${inp}">
@@ -822,7 +829,7 @@ async function toggleCrown(id,currentlyWinner){
   }catch(e){showToastError('更新に失敗しました');}
 }
 
-function switchGame(id){currentGame=id;renderTabs();renderMatchCard();renderFormArea();loadPredictions();}
+function switchGame(id){currentGame=id;renderTabs();renderMatchCard();renderDeadlineBadge();renderFormArea();loadPredictions();}
 function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast show';setTimeout(()=>t.className='toast',2500);}
 function showToastError(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast error show';setTimeout(()=>t.className='toast',2500);}
 function showToastNotify(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast notify show';setTimeout(()=>t.className='toast',4000);}
@@ -923,7 +930,7 @@ function renderViewersBar(users){
 (async()=>{
   await loadCustomGames();
   autoSelectGame();
-  renderTabs();renderMatchCard();renderAuthBar();renderFormArea();renderAdminLoginArea();loadPredictions();
+  renderTabs();renderMatchCard();renderAuthBar();renderDeadlineBadge();renderFormArea();renderAdminLoginArea();loadPredictions();
   if(!isAdmin)startPolling();
   initPresence();
 })();
