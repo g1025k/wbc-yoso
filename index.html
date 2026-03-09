@@ -28,9 +28,9 @@ body{background:var(--navy);color:var(--white);font-family:'Noto Sans JP',sans-s
 .auth-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:5px 14px;color:var(--white);font-size:11px;font-family:'Noto Sans JP',sans-serif;cursor:pointer;transition:all .2s;}
 .auth-btn.logout{border-color:rgba(204,34,51,.4);color:#ff8899;}
 .auth-btn:active{opacity:.7;}
-.game-tabs{display:flex;gap:6px;padding:0 16px;margin-bottom:20px;overflow-x:auto;scrollbar-width:none;}
+.game-tabs{display:flex;gap:6px;padding:0 16px 8px;margin-bottom:20px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
 .game-tabs::-webkit-scrollbar{display:none;}
-.tab{flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:10px 6px;text-align:center;cursor:pointer;transition:all .25s;}
+.tab{flex:0 0 72px;width:72px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:10px 6px;text-align:center;cursor:pointer;transition:all .25s;}
 .tab.active{background:linear-gradient(135deg,var(--red),#8a0015);border-color:var(--red);box-shadow:0 4px 20px rgba(204,34,51,.45);}
 .tab-flag{font-size:18px;display:block;margin-bottom:3px;}
 .tab-date{font-size:9px;color:var(--muted);margin-bottom:2px;}
