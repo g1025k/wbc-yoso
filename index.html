@@ -951,10 +951,14 @@ function renderViewersBar(users){
 }
 
 // ── 掲示板 ──
-let _boardMsgCount=0, _boardSelectMode=false, _boardSelected=new Set();
+let _boardMsgCount=0, _boardSelectMode=false, _boardSelected=new Set(), _boardAllIds=[];
 
 async function loadBoardMsgs(){
-  try{return await sbFetch('messages?order=created_at.asc')||[];}catch{return[];}
+  try{
+    const r=await sbFetch('messages?order=created_at.asc')||[];
+    _boardAllIds=r.map(m=>m.id);
+    return r;
+  }catch{return[];}
 }
 
 function _boardMsgRow(m,selectMode){
@@ -962,8 +966,10 @@ function _boardMsgRow(m,selectMode){
   const t=`${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
   const isAdm=m.from_name==='admin';
   const name=isAdm?'🔑 管理者':esc(m.from_name);
-  const cb=selectMode?`<input type="checkbox" class="board-cb" id="cb_${m.id}" onchange="boardToggleSelect('${m.id}',this.checked)">`:'';
-  const delBtn=isAdmin&&!selectMode?`<button class="board-del" onclick="boardDeleteOne('${m.id}')" title="削除">✕</button>`:'';
+  const myName=localStorage.getItem('wbc_username')||'';
+  const canDel=isAdmin||(myName&&m.from_name===myName);
+  const cb=isAdmin&&selectMode?`<input type="checkbox" class="board-cb" id="cb_${m.id}" onchange="boardToggleSelect('${m.id}',this.checked)">`:'';
+  const delBtn=canDel&&!selectMode?`<button class="board-del" onclick="boardDeleteOne('${m.id}')" title="削除">✕</button>`:'';
   return `<div class="board-msg${isAdm?' by-admin':''}" data-id="${m.id}">
     <div style="display:flex;align-items:center;justify-content:space-between;">
       <div style="display:flex;align-items:center;">${cb}<span class="board-msg-name">${name}</span></div>
@@ -996,7 +1002,6 @@ async function renderBoard(){
   const msgs=await loadBoardMsgs();
   const myName=isAdmin?'admin':(localStorage.getItem('wbc_username')||'');
   const canPost=isAdmin||!!myName;
-  // exit select mode if no messages
   if(msgs.length===0){_boardSelectMode=false;_boardSelected.clear();}
   const msgHtml=msgs.length===0
     ?'<div style="text-align:center;color:var(--muted);font-size:12px;padding:20px 0;">まだ投稿はありません</div>'
@@ -1013,8 +1018,10 @@ async function renderBoard(){
     ${inputHtml}
   </div>`;
   if(!_boardSelectMode){const bm=document.getElementById('boardMsgs');if(bm)bm.scrollTop=bm.scrollHeight;}
-  // restore checkboxes state
-  _boardSelected.forEach(id=>{const cb=document.getElementById(`cb_${id}`);if(cb)cb.checked=true;const row=document.querySelector(`.board-msg[data-id="${id}"]`);if(row)row.classList.add('selected');});
+  _boardSelected.forEach(id=>{
+    const cb=document.getElementById(`cb_${id}`);if(cb)cb.checked=true;
+    const row=document.querySelector(`.board-msg[data-id="${id}"]`);if(row)row.classList.add('selected');
+  });
   if(_boardMsgCount>0&&msgs.length>_boardMsgCount)showToastNotify(`💬 掲示板に新しい投稿があります`);
   _boardMsgCount=msgs.length;
 }
@@ -1050,6 +1057,8 @@ async function boardPost(){
 async function boardDeleteOne(id){
   try{
     await sbFetch(`messages?id=eq.${id}`,{method:'DELETE',prefer:'return=minimal'});
+    _boardSelected.delete(id);
+    _boardAllIds=_boardAllIds.filter(i=>i!==id);
     await renderBoard();
   }catch{showToastError('削除に失敗しました');}
 }
@@ -1066,11 +1075,13 @@ async function boardDeleteSelected(){
 }
 
 async function boardDeleteAll(){
-  if(!confirm(`掲示板のメッセージを全て削除しますか？`))return;
+  if(!confirm('掲示板のメッセージを全て削除しますか？'))return;
+  if(_boardAllIds.length===0)return;
   try{
-    await sbFetch(`messages?id=neq.00000000-0000-0000-0000-000000000000`,{method:'DELETE',prefer:'return=minimal'});
+    await sbFetch(`messages?id=in.(${_boardAllIds.join(',')})`,{method:'DELETE',prefer:'return=minimal'});
     _boardSelected.clear();
     _boardSelectMode=false;
+    _boardAllIds=[];
     await renderBoard();
   }catch{showToastError('削除に失敗しました');}
 }
