@@ -172,7 +172,6 @@ body{background:var(--navy);color:var(--white);font-family:'Noto Sans JP',sans-s
 .board-header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.08);}
 .board-title{font-size:13px;font-weight:700;color:var(--white);letter-spacing:.05em;}
 .board-msgs{display:flex;flex-direction:column;gap:0;max-height:320px;overflow-y:auto;}
-.board-msg{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05);display:flex;flex-direction:column;gap:3px;}
 .board-msg:last-child{border-bottom:none;}
 .board-msg.by-admin .board-msg-name{color:var(--gold);}
 .board-msg-name{font-size:12px;font-weight:700;color:var(--white);}
@@ -183,6 +182,13 @@ body{background:var(--navy);color:var(--white);font-family:'Noto Sans JP',sans-s
 .board-inp::placeholder{color:var(--muted);}
 .board-send{background:var(--red);border:none;border-radius:20px;color:#fff;padding:8px 15px;font-size:13px;font-family:'Noto Sans JP',sans-serif;font-weight:700;cursor:pointer;white-space:nowrap;}
 .board-del{background:none;border:none;color:rgba(255,100,100,.5);font-size:12px;cursor:pointer;padding:0 4px;align-self:flex-start;}
+.board-edit-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:14px;color:rgba(255,255,255,.7);font-size:11px;padding:4px 9px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;white-space:nowrap;}
+.board-edit-btn:active{opacity:.7;}
+.board-del-all{background:rgba(255,60,60,.15);border:1px solid rgba(255,60,60,.3);border-radius:14px;color:#f88;font-size:11px;padding:4px 9px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;white-space:nowrap;}
+.board-del-all:active{opacity:.7;}
+.board-msg{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05);display:flex;flex-direction:column;gap:3px;transition:background .15s;}
+.board-msg.selected{background:rgba(220,30,30,.13);}
+.board-cb{width:15px;height:15px;accent-color:var(--red);cursor:pointer;flex-shrink:0;margin-right:6px;}
 
 .viewers-bar{display:flex;align-items:center;gap:8px;padding:8px 16px;flex-wrap:wrap;}
 .viewers-label{font-size:10px;color:var(--muted);letter-spacing:.08em;white-space:nowrap;}
@@ -945,10 +951,43 @@ function renderViewersBar(users){
 }
 
 // ── 掲示板 ──
-let _boardMsgCount=0;
+let _boardMsgCount=0, _boardSelectMode=false, _boardSelected=new Set();
 
 async function loadBoardMsgs(){
   try{return await sbFetch('messages?order=created_at.asc')||[];}catch{return[];}
+}
+
+function _boardMsgRow(m,selectMode){
+  const d=new Date(m.created_at);
+  const t=`${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+  const isAdm=m.from_name==='admin';
+  const name=isAdm?'🔑 管理者':esc(m.from_name);
+  const cb=selectMode?`<input type="checkbox" class="board-cb" id="cb_${m.id}" onchange="boardToggleSelect('${m.id}',this.checked)">`:'';
+  const delBtn=isAdmin&&!selectMode?`<button class="board-del" onclick="boardDeleteOne('${m.id}')" title="削除">✕</button>`:'';
+  return `<div class="board-msg${isAdm?' by-admin':''}" data-id="${m.id}">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="display:flex;align-items:center;">${cb}<span class="board-msg-name">${name}</span></div>
+      <div style="display:flex;align-items:center;gap:6px;"><span class="board-msg-time">${t}</span>${delBtn}</div>
+    </div>
+    <div class="board-msg-body">${esc(m.message)}</div>
+  </div>`;
+}
+
+function _boardHeaderHtml(msgCount){
+  if(!isAdmin)return`<div class="board-title">💬 掲示板</div>`;
+  if(_boardSelectMode){
+    const n=_boardSelected.size;
+    return`<div class="board-title">💬 掲示板</div>
+      <div style="display:flex;gap:6px;">
+        <button class="board-del-all" onclick="boardDeleteSelected()" ${n===0?'disabled style="opacity:.4"':''}>選択削除(${n})</button>
+        <button class="board-edit-btn" onclick="boardExitSelect()">完了</button>
+      </div>`;
+  }
+  return`<div class="board-title">💬 掲示板</div>
+    <div style="display:flex;gap:6px;">
+      <button class="board-edit-btn" onclick="boardEnterSelect()" ${msgCount===0?'disabled style="opacity:.4"':''}>選択</button>
+      <button class="board-del-all" onclick="boardDeleteAll()" ${msgCount===0?'disabled style="opacity:.4"':''}>全消し</button>
+    </div>`;
 }
 
 async function renderBoard(){
@@ -957,40 +996,42 @@ async function renderBoard(){
   const msgs=await loadBoardMsgs();
   const myName=isAdmin?'admin':(localStorage.getItem('wbc_username')||'');
   const canPost=isAdmin||!!myName;
+  // exit select mode if no messages
+  if(msgs.length===0){_boardSelectMode=false;_boardSelected.clear();}
   const msgHtml=msgs.length===0
     ?'<div style="text-align:center;color:var(--muted);font-size:12px;padding:20px 0;">まだ投稿はありません</div>'
-    :msgs.map(m=>{
-      const d=new Date(m.created_at);
-      const t=`${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
-      const isAdmin_=m.from_name==='admin';
-      const name=isAdmin_?'🔑 管理者':esc(m.from_name);
-      const delBtn=isAdmin?`<button class="board-del" onclick="boardDelete('${m.id}')" title="削除">✕</button>`:'';
-      return `<div class="board-msg${isAdmin_?' by-admin':''}">
-        <div style="display:flex;align-items:center;justify-content:space-between;">
-          <span class="board-msg-name">${name}</span>
-          <div style="display:flex;align-items:center;gap:6px;"><span class="board-msg-time">${t}</span>${delBtn}</div>
-        </div>
-        <div class="board-msg-body">${esc(m.message)}</div>
-      </div>`;
-    }).join('');
-  const inputHtml=canPost
+    :msgs.map(m=>_boardMsgRow(m,_boardSelectMode)).join('');
+  const inputHtml=canPost&&!_boardSelectMode
     ?`<div class="board-foot">
         <input class="board-inp" id="boardInp" placeholder="${isAdmin?'掲示板に投稿...':'メッセージを投稿...'}" maxlength="200" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();boardPost();}">
         <button class="board-send" onclick="boardPost()">投稿</button>
       </div>`
-    :'<div style="padding:10px 14px;font-size:11px;color:var(--muted);">予想を投稿すると書き込めます</div>';
+    :(!canPost?'<div style="padding:10px 14px;font-size:11px;color:var(--muted);">予想を投稿すると書き込めます</div>':'');
   el.innerHTML=`<div class="board-section">
-    <div class="board-header">
-      <div class="board-title">💬 掲示板</div>
-    </div>
+    <div class="board-header" id="boardHeader">${_boardHeaderHtml(msgs.length)}</div>
     <div class="board-msgs" id="boardMsgs">${msgHtml}</div>
     ${inputHtml}
   </div>`;
-  const bm=document.getElementById('boardMsgs');
-  if(bm)bm.scrollTop=bm.scrollHeight;
-  // toast on new messages
+  if(!_boardSelectMode){const bm=document.getElementById('boardMsgs');if(bm)bm.scrollTop=bm.scrollHeight;}
+  // restore checkboxes state
+  _boardSelected.forEach(id=>{const cb=document.getElementById(`cb_${id}`);if(cb)cb.checked=true;const row=document.querySelector(`.board-msg[data-id="${id}"]`);if(row)row.classList.add('selected');});
   if(_boardMsgCount>0&&msgs.length>_boardMsgCount)showToastNotify(`💬 掲示板に新しい投稿があります`);
   _boardMsgCount=msgs.length;
+}
+
+function _refreshBoardHeader(){
+  const h=document.getElementById('boardHeader');
+  if(h)h.innerHTML=_boardHeaderHtml(document.querySelectorAll('.board-msg[data-id]').length);
+}
+
+function boardEnterSelect(){_boardSelectMode=true;_boardSelected.clear();renderBoard();}
+function boardExitSelect(){_boardSelectMode=false;_boardSelected.clear();renderBoard();}
+
+function boardToggleSelect(id,checked){
+  if(checked)_boardSelected.add(id); else _boardSelected.delete(id);
+  const row=document.querySelector(`.board-msg[data-id="${id}"]`);
+  if(row)row.classList.toggle('selected',checked);
+  _refreshBoardHeader();
 }
 
 async function boardPost(){
@@ -1006,9 +1047,30 @@ async function boardPost(){
   }catch{showToastError('投稿に失敗しました');}
 }
 
-async function boardDelete(id){
+async function boardDeleteOne(id){
   try{
     await sbFetch(`messages?id=eq.${id}`,{method:'DELETE',prefer:'return=minimal'});
+    await renderBoard();
+  }catch{showToastError('削除に失敗しました');}
+}
+
+async function boardDeleteSelected(){
+  if(_boardSelected.size===0)return;
+  const ids=[..._boardSelected];
+  try{
+    await sbFetch(`messages?id=in.(${ids.join(',')})`,{method:'DELETE',prefer:'return=minimal'});
+    _boardSelected.clear();
+    _boardSelectMode=false;
+    await renderBoard();
+  }catch{showToastError('削除に失敗しました');}
+}
+
+async function boardDeleteAll(){
+  if(!confirm(`掲示板のメッセージを全て削除しますか？`))return;
+  try{
+    await sbFetch(`messages?id=neq.00000000-0000-0000-0000-000000000000`,{method:'DELETE',prefer:'return=minimal'});
+    _boardSelected.clear();
+    _boardSelectMode=false;
     await renderBoard();
   }catch{showToastError('削除に失敗しました');}
 }
