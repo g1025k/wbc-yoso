@@ -168,6 +168,21 @@ body{background:var(--navy);color:var(--white);font-family:'Noto Sans JP',sans-s
 .pred-edit-time{font-size:10px;color:rgba(245,194,0,.6);}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;}
 .modal-box{background:var(--navy2);border:1px solid var(--border);border-radius:20px;padding:24px;width:100%;max-width:320px;}
+.board-section{margin:0 16px 24px;border:1px solid rgba(255,255,255,.1);border-radius:16px;overflow:hidden;}
+.board-header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.08);}
+.board-title{font-size:13px;font-weight:700;color:var(--white);letter-spacing:.05em;}
+.board-msgs{display:flex;flex-direction:column;gap:0;max-height:320px;overflow-y:auto;}
+.board-msg{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05);display:flex;flex-direction:column;gap:3px;}
+.board-msg:last-child{border-bottom:none;}
+.board-msg.by-admin .board-msg-name{color:var(--gold);}
+.board-msg-name{font-size:12px;font-weight:700;color:var(--white);}
+.board-msg-body{font-size:13px;color:var(--white);line-height:1.5;word-break:break-word;}
+.board-msg-time{font-size:10px;color:var(--muted);}
+.board-foot{display:flex;gap:8px;padding:10px 12px;border-top:1px solid rgba(255,255,255,.08);}
+.board-inp{flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:20px;color:var(--white);padding:8px 13px;font-size:13px;font-family:'Noto Sans JP',sans-serif;outline:none;}
+.board-inp::placeholder{color:var(--muted);}
+.board-send{background:var(--red);border:none;border-radius:20px;color:#fff;padding:8px 15px;font-size:13px;font-family:'Noto Sans JP',sans-serif;font-weight:700;cursor:pointer;white-space:nowrap;}
+.board-del{background:none;border:none;color:rgba(255,100,100,.5);font-size:12px;cursor:pointer;padding:0 4px;align-self:flex-start;}
 
 .viewers-bar{display:flex;align-items:center;gap:8px;padding:8px 16px;flex-wrap:wrap;}
 .viewers-label{font-size:10px;color:var(--muted);letter-spacing:.08em;white-space:nowrap;}
@@ -223,6 +238,9 @@ body{background:var(--navy);color:var(--white);font-family:'Noto Sans JP',sans-s
   <!-- RANKING -->
   <div id="rankingArea"></div>
 
+  <!-- BOARD -->
+  <div id="boardArea"></div>
+
   <!-- ADMIN LOGIN AREA (bottom) -->
   <div id="adminLoginArea"></div>
 </div>
@@ -259,7 +277,7 @@ const GAMES=[
 ];
 const PASSWORD='maru';
 let currentGame='g0', isAdmin=false, countdownTimer=null, _pollTimers=[];
-function startPolling(){stopPolling();_pollTimers.push(setInterval(async()=>{await loadCustomGames();renderDeadlineBadge();renderFormArea();},10000),setInterval(async()=>{loadPredictions(true);},30000));}
+function startPolling(){stopPolling();_pollTimers.push(setInterval(async()=>{await loadCustomGames();renderDeadlineBadge();renderFormArea();},10000),setInterval(async()=>{loadPredictions(true);},30000),setInterval(async()=>{await renderBoard();},20000));}
 function stopPolling(){_pollTimers.forEach(clearInterval);_pollTimers=[];}
 async function manualReload(){await loadCustomGames();renderDeadlineBadge();renderFormArea();await loadPredictions();showToast('✅ 更新しました');}
 const _seenPredIds={};
@@ -273,12 +291,15 @@ async function addCustomGame(){
   const sub=(document.getElementById('ag_sub')?.value||'').trim();
   const sectionLabel=(document.getElementById('ag_section')?.value||'').trim()||'WBC 一次ラウンド';
   const timeVal=(document.getElementById('ag_time')?.value||'19:00').trim();
+  const dateVal=(document.getElementById('ag_date')?.value||'').trim();
   const dlVal=document.getElementById('ag_dl')?.value;
   if(!opp||!dlVal){showToastError('対戦相手と締切日時は必須です');return;}
   const dl=new Date(dlVal);
   const days=['日','月','火','水','木','金','土'];
   const id='gc_'+Date.now();
-  const date=`${dl.getMonth()+1}/${dl.getDate()}(${days[dl.getDay()]})`;
+  let date;
+  if(dateVal){const gd=new Date(dateVal+'T00:00:00');date=`${gd.getMonth()+1}/${gd.getDate()}(${days[gd.getDay()]})`;}
+  else{date=`${dl.getMonth()+1}/${dl.getDate()}(${days[dl.getDay()]})`;};
   const flag2=flag||'🏳️';
   const sub2=sub||opp.toUpperCase();
   // section_label is encoded in sub field as "SUB|SECTION_LABEL"
@@ -289,7 +310,7 @@ async function addCustomGame(){
     await sbFetch('custom_games',{method:'POST',prefer:'return=minimal',body:JSON.stringify({id,date,time:timeVal,opp,flag:flag2,sub:subEncoded,open_iso,deadline_iso})});
     GAMES.push({id,date,time:timeVal,opp,flag:flag2,sub:sub2,section_label:sectionLabel,open:new Date(open_iso),deadline:dl,custom:true});
     currentGame=id;
-    renderTabs();renderMatchCard();renderFormArea();renderAdminLoginArea();loadPredictions();
+    renderTabs();renderMatchCard();renderDeadlineBadge();renderFormArea();renderAdminLoginArea();loadPredictions();
     showToast('✅ 試合を追加しました');
   }catch(e){showToastError('試合の追加に失敗しました');}
 }
@@ -728,7 +749,7 @@ function renderAdminLoginArea(){
         ${g.custom?`<button onclick="deleteCustomGame('${g.id}')" style="background:rgba(255,80,80,.2);border:1px solid rgba(255,80,80,.4);border-radius:6px;color:#ff8080;font-size:11px;padding:3px 8px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">削除</button>`:'<span style="font-size:10px;color:var(--muted);">固定</span>'}
       </div>`).join('');
     const savedInputs={};
-    for(const id of['ag_flag','ag_opp','ag_time','ag_sub','ag_section','ag_dl']){const f=document.getElementById(id);if(f)savedInputs[id]=f.value;}
+    for(const id of['ag_flag','ag_opp','ag_date','ag_time','ag_sub','ag_section','ag_dl']){const f=document.getElementById(id);if(f)savedInputs[id]=f.value;}
     el.innerHTML=`
       <div style="margin:20px 16px 0;padding:16px;border:1px solid rgba(245,194,0,.25);border-radius:14px;background:rgba(245,194,0,.05);">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
@@ -744,7 +765,11 @@ function renderAdminLoginArea(){
             <div style="display:flex;gap:6px;margin-bottom:6px;">
               <input id="ag_flag" placeholder="🇨🇿" maxlength="4" style="width:48px;text-align:center;font-size:16px;${inp}">
               <input id="ag_opp" placeholder="対戦相手（日本語）" style="flex:1;${inp}">
-              <input id="ag_time" placeholder="19:00" maxlength="5" style="width:58px;text-align:center;${inp}">
+            </div>
+            <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
+              <span style="font-size:11px;color:var(--muted);white-space:nowrap;">試合日時</span>
+              <input type="date" id="ag_date" style="flex:1;${inp}">
+              <input id="ag_time" placeholder="22:10" maxlength="5" style="width:58px;text-align:center;${inp}">
             </div>
             <div style="margin-bottom:6px;">
               <input id="ag_sub" placeholder="OPPONENT (英語・省略可)" style="width:100%;box-sizing:border-box;${inp}">
@@ -822,7 +847,7 @@ async function toggleCrown(id,currentlyWinner){
   }catch(e){showToastError('更新に失敗しました');}
 }
 
-function switchGame(id){currentGame=id;renderTabs();renderMatchCard();renderFormArea();loadPredictions();}
+function switchGame(id){currentGame=id;renderTabs();renderMatchCard();renderDeadlineBadge();renderFormArea();loadPredictions();}
 function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast show';setTimeout(()=>t.className='toast',2500);}
 function showToastError(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast error show';setTimeout(()=>t.className='toast',2500);}
 function showToastNotify(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast notify show';setTimeout(()=>t.className='toast',4000);}
@@ -919,11 +944,80 @@ function renderViewersBar(users){
     +users.map(n=>`<span class="viewer-chip"><span class="viewer-dot"></span>${n}</span>`).join('');
 }
 
+// ── 掲示板 ──
+let _boardMsgCount=0;
+
+async function loadBoardMsgs(){
+  try{return await sbFetch('messages?order=created_at.asc')||[];}catch{return[];}
+}
+
+async function renderBoard(){
+  const el=document.getElementById('boardArea');
+  if(!el)return;
+  const msgs=await loadBoardMsgs();
+  const myName=isAdmin?'admin':(localStorage.getItem('wbc_username')||'');
+  const canPost=isAdmin||!!myName;
+  const msgHtml=msgs.length===0
+    ?'<div style="text-align:center;color:var(--muted);font-size:12px;padding:20px 0;">まだ投稿はありません</div>'
+    :msgs.map(m=>{
+      const d=new Date(m.created_at);
+      const t=`${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+      const isAdmin_=m.from_name==='admin';
+      const name=isAdmin_?'🔑 管理者':esc(m.from_name);
+      const delBtn=isAdmin?`<button class="board-del" onclick="boardDelete('${m.id}')" title="削除">✕</button>`:'';
+      return `<div class="board-msg${isAdmin_?' by-admin':''}">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <span class="board-msg-name">${name}</span>
+          <div style="display:flex;align-items:center;gap:6px;"><span class="board-msg-time">${t}</span>${delBtn}</div>
+        </div>
+        <div class="board-msg-body">${esc(m.message)}</div>
+      </div>`;
+    }).join('');
+  const inputHtml=canPost
+    ?`<div class="board-foot">
+        <input class="board-inp" id="boardInp" placeholder="${isAdmin?'掲示板に投稿...':'メッセージを投稿...'}" maxlength="200" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();boardPost();}">
+        <button class="board-send" onclick="boardPost()">投稿</button>
+      </div>`
+    :'<div style="padding:10px 14px;font-size:11px;color:var(--muted);">予想を投稿すると書き込めます</div>';
+  el.innerHTML=`<div class="board-section">
+    <div class="board-header">
+      <div class="board-title">💬 掲示板</div>
+    </div>
+    <div class="board-msgs" id="boardMsgs">${msgHtml}</div>
+    ${inputHtml}
+  </div>`;
+  const bm=document.getElementById('boardMsgs');
+  if(bm)bm.scrollTop=bm.scrollHeight;
+  // toast on new messages
+  if(_boardMsgCount>0&&msgs.length>_boardMsgCount)showToastNotify(`💬 掲示板に新しい投稿があります`);
+  _boardMsgCount=msgs.length;
+}
+
+async function boardPost(){
+  const inp=document.getElementById('boardInp');
+  const text=(inp?.value||'').trim();
+  if(!text)return;
+  const fromName=isAdmin?'admin':(localStorage.getItem('wbc_username')||'');
+  if(!fromName)return;
+  inp.value='';
+  try{
+    await sbFetch('messages',{method:'POST',prefer:'return=minimal',body:JSON.stringify({from_name:fromName,message:text})});
+    await renderBoard();
+  }catch{showToastError('投稿に失敗しました');}
+}
+
+async function boardDelete(id){
+  try{
+    await sbFetch(`messages?id=eq.${id}`,{method:'DELETE',prefer:'return=minimal'});
+    await renderBoard();
+  }catch{showToastError('削除に失敗しました');}
+}
+
 // INIT
 (async()=>{
   await loadCustomGames();
   autoSelectGame();
-  renderTabs();renderMatchCard();renderAuthBar();renderFormArea();renderAdminLoginArea();loadPredictions();
+  renderTabs();renderMatchCard();renderAuthBar();renderDeadlineBadge();renderFormArea();renderAdminLoginArea();loadPredictions();renderBoard();
   if(!isAdmin)startPolling();
   initPresence();
 })();
