@@ -999,6 +999,7 @@ function _boardHeaderHtml(msgCount){
 async function renderBoard(){
   const el=document.getElementById('boardArea');
   if(!el)return;
+  const savedInpVal=document.getElementById('boardInp')?.value||'';
   const msgs=await loadBoardMsgs();
   const myName=isAdmin?'admin':(localStorage.getItem('wbc_username')||'');
   const canPost=isAdmin||!!myName;
@@ -1017,6 +1018,7 @@ async function renderBoard(){
     <div class="board-msgs" id="boardMsgs">${msgHtml}</div>
     ${inputHtml}
   </div>`;
+  if(savedInpVal){const inp=document.getElementById('boardInp');if(inp)inp.value=savedInpVal;}
   if(!_boardSelectMode){const bm=document.getElementById('boardMsgs');if(bm)bm.scrollTop=bm.scrollHeight;}
   _boardSelected.forEach(id=>{
     const cb=document.getElementById(`cb_${id}`);if(cb)cb.checked=true;
