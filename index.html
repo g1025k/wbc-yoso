@@ -283,14 +283,14 @@ const GAMES=[
 ];
 const PASSWORD='maru';
 let currentGame='g0', isAdmin=false, countdownTimer=null, _pollTimers=[];
-function autoSwitchToOpenGame(){const cur=GAMES.find(x=>x.id===currentGame);if(isOpen(cur))return;const openGame=GAMES.find(isOpen);if(openGame){currentGame=openGame.id;renderTabs();renderMatchCard();}}
+function autoSwitchToOpenGame(){const cur=GAMES.find(x=>x.id===currentGame);if(!cur||isOpen(cur))return;const openGame=GAMES.find(isOpen);if(openGame){currentGame=openGame.id;renderTabs();renderMatchCard();}}
 function startPolling(){stopPolling();_pollTimers.push(setInterval(async()=>{await loadCustomGames();autoSwitchToOpenGame();renderDeadlineBadge();renderFormArea();},10000),setInterval(async()=>{loadPredictions(true);},30000),setInterval(async()=>{await renderBoard();},20000));}
 function stopPolling(){_pollTimers.forEach(clearInterval);_pollTimers=[];}
 async function manualReload(){await loadCustomGames();autoSwitchToOpenGame();renderDeadlineBadge();renderFormArea();await loadPredictions();showToast('✅ 更新しました');}
 const _seenPredIds={};
 function getDeadline(game){return game.deadline;}
 function toLocalDatetimeValue(d){const pad=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;}
-async function saveDeadline(gameId){const val=document.getElementById('dl_'+gameId)?.value;if(!val){showToastError('日時を選択してください');return;}const isoStr=new Date(val).toISOString();const g=GAMES.find(x=>x.id===gameId);if(!g)return;try{const existing=await sbFetch(`custom_games?id=eq.${gameId}`);if(existing&&existing.length>0){await sbFetch(`custom_games?id=eq.${gameId}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({deadline_iso:isoStr})});}else{await sbFetch('custom_games',{method:'POST',prefer:'return=minimal',body:JSON.stringify({id:gameId,date:g.date,time:g.time,opp:g.opp,flag:g.flag||'',sub:(g.sub||'')+'|'+(g.section_label||'WBC 一次ラウンド'),open_iso:g.open.toISOString(),deadline_iso:isoStr})});}}catch(e){showToastError('⚠️ 締切のサーバー保存に失敗しました（他ユーザーに反映されません）');return;}g.deadline=new Date(isoStr);if(isOpen(g)){currentGame=gameId;renderTabs();}renderDeadlineBadge();renderFormArea();showToast('✅ 締切を更新しました');}
+async function saveDeadline(gameId){const val=document.getElementById('dl_'+gameId)?.value;if(!val){showToastError('日時を選択してください');return;}const isoStr=new Date(val).toISOString();const g=GAMES.find(x=>x.id===gameId);if(!g)return;try{const existing=await sbFetch(`custom_games?id=eq.${gameId}`);if(existing&&existing.length>0){await sbFetch(`custom_games?id=eq.${gameId}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({deadline_iso:isoStr})});}else{await sbFetch('custom_games',{method:'POST',prefer:'return=minimal',body:JSON.stringify({id:gameId,date:g.date,time:g.time,opp:g.opp,flag:g.flag||'',sub:(g.sub||'')+'|'+(g.section_label||'WBC 一次ラウンド'),open_iso:g.open.toISOString(),deadline_iso:isoStr})});}}catch(e){showToastError('⚠️ 締切のサーバー保存に失敗しました（他ユーザーに反映されません）');return;}g.deadline=new Date(isoStr);if(isOpen(g)){currentGame=gameId;renderTabs();renderMatchCard();}renderDeadlineBadge();renderFormArea();renderAdminLoginArea();showToast('✅ 締切を更新しました');}
 async function loadCustomGames(){try{const rows=await sbFetch('custom_games');if(rows){rows.forEach(g=>{const existing=GAMES.find(x=>x.id===g.id);if(!existing){const parts=(g.sub||'').split('|');const sub=parts[0];const section_label=parts[1]||'WBC 一次ラウンド';GAMES.push({id:g.id,date:g.date,time:g.time,opp:g.opp,flag:g.flag,sub,section_label,open:new Date(g.open_iso),deadline:new Date(g.deadline_iso),custom:true});}else if(g.deadline_iso){existing.deadline=new Date(g.deadline_iso);}});}}catch(e){}}
 async function addCustomGame(){
   const flag=(document.getElementById('ag_flag')?.value||'').trim();
@@ -519,7 +519,7 @@ async function loadPredictions(notify=false){
       }
     }
     _seenPredIds[currentGame]=new Set((rows||[]).map(r=>r.id));
-    if(!isAdmin)renderDeadlineBadge();
+    if(!isAdmin){renderDeadlineBadge();renderFormArea();}
     renderActualScoreArea(rows||[]);
     renderStats(rows||[]);
     renderList(rows||[]);
