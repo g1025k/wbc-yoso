@@ -194,6 +194,28 @@ body{background:var(--navy);color:var(--white);font-family:'Noto Sans JP',sans-s
 .viewers-label{font-size:10px;color:var(--muted);letter-spacing:.08em;white-space:nowrap;}
 .viewer-chip{display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--white);}
 .viewer-dot{width:6px;height:6px;background:#4caf50;border-radius:50%;flex-shrink:0;}
+
+/* COMPLETED GAME TAB */
+.tab.done{opacity:.6;}
+.tab.done .tab-flag::after{content:'✅';font-size:10px;position:absolute;right:-4px;top:-4px;}
+.tab.done{position:relative;}
+
+/* COLLAPSED COMPLETED GAME */
+.game-done-card{margin:0 16px 16px;background:rgba(245,194,0,.05);border:1px solid rgba(245,194,0,.2);border-radius:18px;padding:18px;text-align:center;}
+.game-done-score{font-family:'Oswald',sans-serif;font-size:28px;color:var(--gold);letter-spacing:.05em;margin-bottom:6px;}
+.game-done-stats{font-size:12px;color:var(--muted);margin-bottom:14px;}
+.game-expand-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:20px;color:var(--white);font-size:12px;font-family:'Noto Sans JP',sans-serif;padding:7px 18px;cursor:pointer;transition:background .2s;}
+.game-expand-btn:active{opacity:.7;}
+
+/* PARTICIPATION LIST */
+.part-section{margin:20px 16px 0;background:var(--card);border:1px solid var(--border);border-radius:18px;padding:16px 18px;}
+.part-title{font-size:11px;letter-spacing:.15em;color:var(--muted);text-transform:uppercase;margin-bottom:14px;}
+.part-game{padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05);}
+.part-game:last-child{border-bottom:none;}
+.part-game-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+.part-game-label{font-size:13px;font-weight:700;color:var(--white);}
+.part-game-count{font-family:'Oswald',sans-serif;font-size:15px;color:var(--gold);}
+.part-names{font-size:11px;color:var(--muted);line-height:1.6;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
@@ -308,8 +330,9 @@ const GAMES=[
 ];
 const PASSWORD='maru';
 let currentGame='g0', isAdmin=false, countdownTimer=null, _pollTimers=[];
+let _allActualScores={}, _expandedGames=new Set();
 function autoSwitchToOpenGame(){const cur=GAMES.find(x=>x.id===currentGame);if(!cur||isOpen(cur))return;const openGame=GAMES.find(isOpen);if(openGame){currentGame=openGame.id;renderTabs();renderMatchCard();}}
-function startPolling(){stopPolling();_pollTimers.push(setInterval(async()=>{await loadCustomGames();autoSwitchToOpenGame();renderDeadlineBadge();renderFormArea();},10000),setInterval(async()=>{loadPredictions(true);},30000),setInterval(async()=>{await renderBoard();},20000));}
+function startPolling(){stopPolling();_pollTimers.push(setInterval(async()=>{await loadCustomGames();await loadAllActualScores();autoSwitchToOpenGame();renderDeadlineBadge();renderFormArea();renderTabs();},10000),setInterval(async()=>{loadPredictions(true);},30000),setInterval(async()=>{await renderBoard();},20000));}
 function stopPolling(){_pollTimers.forEach(clearInterval);_pollTimers=[];}
 async function manualReload(){await loadCustomGames();autoSwitchToOpenGame();renderDeadlineBadge();renderFormArea();await loadPredictions();showToast('✅ 更新しました');}
 const _seenPredIds={};
@@ -382,19 +405,19 @@ function restoreName(){const s=localStorage.getItem('wbc_username');const i=docu
 function toggleAuth(){
   if(isAdmin){
     isAdmin=false;
-    renderAuthBar();renderFormArea();loadPredictions();startPolling();showToast('ログアウトしました');
+    renderAuthBar();renderFormArea();loadPredictions();renderBoard();startPolling();showToast('ログアウトしました');
     const name=localStorage.getItem('wbc_username')||'名前未入力';
     _presenceChannel?.track({name});
     return;
   }
   const pw=prompt('管理者パスワードを入力してください：');
   if(pw===null)return;
-  if(pw===PASSWORD){isAdmin=true;stopPolling();renderAuthBar();renderFormArea();renderAdminLoginArea();loadPredictions();showToast('🔓 管理者でログインしました！');_presenceChannel?.untrack();}
+  if(pw===PASSWORD){isAdmin=true;stopPolling();renderAuthBar();renderFormArea();renderAdminLoginArea();loadPredictions();renderBoard();showToast('🔓 管理者でログインしました！');_presenceChannel?.untrack();}
   else showToastError('パスワードが違います');
 }
 function loginFromPrompt(){
   const pw=document.getElementById('pwInp')?.value;
-  if(pw===PASSWORD){isAdmin=true;stopPolling();renderAuthBar();renderFormArea();renderAdminLoginArea();loadPredictions();showToast('🔓 管理者でログインしました！');_presenceChannel?.untrack();}
+  if(pw===PASSWORD){isAdmin=true;stopPolling();renderAuthBar();renderFormArea();renderAdminLoginArea();loadPredictions();renderBoard();showToast('🔓 管理者でログインしました！');_presenceChannel?.untrack();}
   else showToastError('パスワードが違います');
 }
 function renderAuthBar(){
@@ -444,12 +467,14 @@ function renderDeadlineBadge(){
 
 // ── Tabs ──
 function renderTabs(){
-  document.getElementById('gameTabs').innerHTML=GAMES.map(g=>`
-    <div class="tab ${g.id===currentGame?'active':''}" onclick="switchGame('${g.id}')">
-      <span class="tab-flag">${g.flag}</span>
+  document.getElementById('gameTabs').innerHTML=GAMES.map(g=>{
+    const done=!!_allActualScores[g.id];
+    return `<div class="tab ${g.id===currentGame?'active':''} ${done?'done':''}" onclick="switchGame('${g.id}')">
+      <span class="tab-flag">${g.flag}${done?'<span style="font-size:9px;display:block;margin-top:-4px;">✅</span>':''}</span>
       <div class="tab-date">${g.date}</div>
       <div class="tab-vs">vs ${g.opp.length>6?g.opp.slice(0,5)+'…':g.opp}</div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 // ── Match Card ──
@@ -545,12 +570,23 @@ async function loadPredictions(notify=false){
       }
     }
     _seenPredIds[currentGame]=new Set((rows||[]).map(r=>r.id));
+    const actual=_allActualScores[currentGame];
+    const isCollapsed=!!actual&&!_expandedGames.has(currentGame);
     if(!isAdmin){renderDeadlineBadge();renderFormArea();}
     renderActualScoreArea(rows||[]);
-    renderStats(rows||[]);
-    renderList(rows||[]);
+    if(isCollapsed){
+      renderStats([]);
+      renderCollapsedGameSummary(rows||[],actual);
+    }else{
+      renderStats(rows||[]);
+      renderList(rows||[]);
+      if(!!actual&&_expandedGames.has(currentGame)){
+        const pl=document.getElementById('predList');
+        if(pl)pl.innerHTML+=`<div style="text-align:center;padding:12px 0;"><button class="game-expand-btn" onclick="toggleGameExpand('${currentGame}')">🔼 折りたたむ</button></div>`;
+      }
+    }
     renderPredCount(rows?rows.length:0);
-    await renderRanking();
+    await renderParticipation();
   }catch(e){
     console.error(e);
     showToastError('データの読み込みに失敗しました');
@@ -563,6 +599,28 @@ async function loadPredictions(notify=false){
 async function loadActualScore(){
   try{const rows=await sbFetch(`actual_scores?game_id=eq.${currentGame}`);return rows&&rows.length>0?rows[0]:null;}
   catch(e){return null;}
+}
+
+async function loadAllActualScores(){
+  try{const rows=await sbFetch('actual_scores');_allActualScores={};(rows||[]).forEach(s=>{_allActualScores[s.game_id]=s;});}
+  catch(e){}
+}
+
+function toggleGameExpand(gameId){
+  if(_expandedGames.has(gameId))_expandedGames.delete(gameId);
+  else _expandedGames.add(gameId);
+  loadPredictions();
+}
+
+function renderCollapsedGameSummary(preds,actual){
+  const el=document.getElementById('predList');
+  const g=GAMES.find(x=>x.id===currentGame);
+  const winners=preds.filter(p=>p.is_winner).length;
+  el.innerHTML=`<div class="game-done-card">
+    <div class="game-done-score">🇯🇵 ${actual.jp} — ${actual.opp} ${g?g.flag:''}</div>
+    <div class="game-done-stats">${preds.length}人参加・${winners}人正解</div>
+    <button class="game-expand-btn" onclick="toggleGameExpand('${currentGame}')">📋 予想一覧を見る</button>
+  </div>`;
 }
 
 // ── Actual Score ──
@@ -617,6 +675,8 @@ async function saveActualScore(){
       await sbFetch(`predictions?id=eq.${p.id}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({is_winner:correct,is_loser:!correct})});
     }
     showToast('👑 正解者に王冠をつけました！');
+    await loadAllActualScores();
+    renderTabs();
     await loadPredictions();
   }catch(e){console.error(e);showToastError('保存に失敗しました: '+e.message);}
 }
@@ -630,6 +690,8 @@ async function resetActualScore(){
       await sbFetch(`predictions?id=eq.${p.id}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({is_winner:false,is_loser:false})});
     }
     showToast('リセットしました');
+    await loadAllActualScores();
+    renderTabs();
     await loadPredictions();
   }catch(e){showToastError('リセットに失敗しました');}
 }
@@ -710,52 +772,29 @@ function renderList(preds){
   }).join('');
 }
 
-// ── Ranking ──
-async function renderRanking(){
+// ── Participation List ──
+async function renderParticipation(){
   const el=document.getElementById('rankingArea');
   try{
-    const [all,actualScores]=await Promise.all([sbFetch('predictions?order=name.asc'),sbFetch('actual_scores')]);
+    const all=await sbFetch('predictions?order=created_at.asc');
     if(!all||all.length===0){el.innerHTML='';return;}
-    const actualMap={};
-    (actualScores||[]).forEach(s=>{actualMap[s.game_id]=s;});
-    const hasAnyActual=Object.keys(actualMap).length>0;
-    const map={};
-    all.forEach(p=>{
-      if(!map[p.name]) map[p.name]={name:p.name,wins:0,total:0,closeness:0,games:{}};
-      map[p.name].total++;
-      const actual=actualMap[p.game_id];
-      const dist=actual?Math.abs(p.jp-actual.jp)+Math.abs(p.opp-actual.opp):null;
-      map[p.name].games[p.game_id]={jp:p.jp,opp:p.opp,winner:p.is_winner,dist};
-      if(p.is_winner) map[p.name].wins++;
-      if(dist!==null) map[p.name].closeness+=dist;
-    });
-    const sorted=Object.values(map).sort((a,b)=>b.wins-a.wins||b.total-a.total);
-    sorted.forEach((p,i)=>{p.rank=i===0?1:(p.wins===sorted[i-1].wins&&p.total===sorted[i-1].total?sorted[i-1].rank:i+1);});
-    const medals={1:'🥇',2:'🥈',3:'🥉'};
-    const rankColors={1:'gold',2:'silver',3:'bronze'};
-    const gameLabels=Object.fromEntries(GAMES.map(g=>[g.id,g.date]));
+    const gameMap={};
+    GAMES.forEach(g=>{gameMap[g.id]=[];});
+    all.forEach(p=>{if(gameMap[p.game_id])gameMap[p.game_id].push(p.name);});
+    const hasAny=GAMES.some(g=>gameMap[g.id].length>0);
+    if(!hasAny){el.innerHTML='';return;}
     el.innerHTML=`
-      <div class="ranking-section">
-        <div class="ranking-title">🏆 総合ランキング</div>
-        ${sorted.map((p)=>{
-          const gameDetail=GAMES.map(g=>{
-            const gd=p.games[g.id];
-            if(!gd) return `<span class="game-badge miss">─ ${gameLabels[g.id]}</span>`;
-            if(gd.winner) return `<span class="game-badge hit">👑 ${gameLabels[g.id]} ${gd.jp}-${gd.opp}</span>`;
-            const distLabel=gd.dist!=null?` <span style="font-size:9px;opacity:.7;">±${gd.dist}</span>`:'';
-            return `<span class="game-badge played">${gameLabels[g.id]} ${gd.jp}-${gd.opp}${distLabel}</span>`;
-          }).join('');
-          return `<div class="rank-item">
-            <div class="rank-num ${rankColors[p.rank]||''}">${medals[p.rank]||p.rank}</div>
-            <div class="rank-avatar">${[...p.name][0].toUpperCase()}</div>
-            <div class="rank-info">
-              <div class="rank-name">${esc(p.name)}</div>
-              <div class="rank-games">${gameDetail}</div>
+      <div class="part-section">
+        <div class="part-title">⚾ 試合別 参加状況</div>
+        ${GAMES.map(g=>{
+          const names=gameMap[g.id];
+          const unique=[...new Set(names)];
+          return `<div class="part-game">
+            <div class="part-game-header">
+              <div class="part-game-label">${g.flag} ${g.date} vs ${g.opp}</div>
+              <div class="part-game-count">${unique.length}<span style="font-size:11px;color:var(--muted);font-family:'Noto Sans JP',sans-serif;"> 人</span></div>
             </div>
-            <div style="text-align:right;flex-shrink:0;">
-              <div class="rank-score">${p.wins}<span style="font-size:12px;color:var(--muted);">/${p.total}</span></div>
-              <div class="rank-label">正解/参加</div>
-            </div>
+            <div class="part-names">${unique.length>0?unique.map(n=>esc(n)).join('・'):'─ まだ誰も参加していません'}</div>
           </div>`;
         }).join('')}
       </div>`;
@@ -833,7 +872,7 @@ function renderAdminLoginArea(){
 function showAdminLoginBottom(){
   const pw=prompt('管理者パスワードを入力してください：');
   if(pw===null)return;
-  if(pw===PASSWORD){isAdmin=true;stopPolling();renderAuthBar();renderFormArea();renderAdminLoginArea();loadPredictions();showToast('🔓 管理者でログインしました！');_presenceChannel?.untrack();}
+  if(pw===PASSWORD){isAdmin=true;stopPolling();renderAuthBar();renderFormArea();renderAdminLoginArea();loadPredictions();renderBoard();showToast('🔓 管理者でログインしました！');_presenceChannel?.untrack();}
   else showToastError('パスワードが違います');
 }
 
@@ -1192,6 +1231,7 @@ async function boardDeleteAll(){
 // INIT
 (async()=>{
   await loadCustomGames();
+  await loadAllActualScores();
   autoSelectGame();
   renderTabs();renderMatchCard();renderAuthBar();renderDeadlineBadge();renderFormArea();renderAdminLoginArea();loadPredictions();renderBoard();
   if(!isAdmin)startPolling();
