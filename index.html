@@ -36,6 +36,17 @@ body{background:var(--navy);color:var(--white);font-family:'Noto Sans JP',sans-s
 .tab-date{font-size:9px;color:var(--muted);margin-bottom:2px;}
 .tab.active .tab-date{color:rgba(255,255,255,.65);}
 .tab-vs{font-size:10px;font-weight:700;white-space:normal;word-break:keep-all;line-height:1.3;}
+.done-games-section{padding:0 16px 8px;}
+.done-games-label{font-size:10px;color:var(--muted);letter-spacing:.1em;margin-bottom:6px;display:flex;align-items:center;gap:4px;}
+.done-chips-row{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:2px;}
+.done-chips-row::-webkit-scrollbar{display:none;}
+.done-chip{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:3px;background:rgba(245,194,0,.06);border:1px solid rgba(245,194,0,.18);border-radius:12px;padding:7px 12px;cursor:pointer;transition:all .2s;min-width:80px;}
+.done-chip:active{opacity:.7;}
+.done-chip.active{background:linear-gradient(135deg,rgba(245,194,0,.18),rgba(232,150,10,.12));border-color:var(--gold);box-shadow:0 2px 12px rgba(245,194,0,.25);}
+.done-chip-date{font-size:9px;color:var(--muted);}
+.done-chip.active .done-chip-date{color:rgba(245,194,0,.7);}
+.done-chip-score{font-family:'Oswald',sans-serif;font-size:14px;font-weight:700;color:var(--gold);letter-spacing:.03em;white-space:nowrap;}
+.done-chip-vs{font-size:9px;color:var(--muted);white-space:nowrap;}
 .match-card{margin:0 16px 16px;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:20px;position:relative;overflow:hidden;backdrop-filter:blur(8px);}
 .match-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold),var(--red),var(--gold));}
 .match-info{display:flex;align-items:center;justify-content:space-between;gap:12px;}
@@ -240,6 +251,7 @@ body{background:var(--navy);color:var(--white);font-family:'Noto Sans JP',sans-s
     ⚾ 侍ジャパン 公式スケジュール・結果を確認
     <span style="font-size:11px;opacity:.6;">↗</span>
   </a>
+  <div id="doneGamesArea"></div>
   <div class="game-tabs" id="gameTabs"></div>
   <div class="match-card" id="matchCard"></div>
   <div class="pred-count" id="predCount"></div>
@@ -467,14 +479,35 @@ function renderDeadlineBadge(){
 
 // ── Tabs ──
 function renderTabs(){
-  document.getElementById('gameTabs').innerHTML=GAMES.map(g=>{
-    const done=!!_allActualScores[g.id];
-    return `<div class="tab ${g.id===currentGame?'active':''} ${done?'done':''}" onclick="switchGame('${g.id}')">
-      <span class="tab-flag">${g.flag}${done?'<span style="font-size:9px;display:block;margin-top:-4px;">✅</span>':''}</span>
+  const doneGames=GAMES.filter(g=>!!_allActualScores[g.id]);
+  const pendingGames=GAMES.filter(g=>!_allActualScores[g.id]);
+  // 確定スコアあり試合をまとめて表示
+  const doneArea=document.getElementById('doneGamesArea');
+  if(doneGames.length>0){
+    doneArea.innerHTML=`<div class="done-games-section">
+      <div class="done-games-label">✅ 確定スコア（${doneGames.length}試合）</div>
+      <div class="done-chips-row">${doneGames.map(g=>{
+        const sc=_allActualScores[g.id];
+        return `<div class="done-chip ${g.id===currentGame?'active':''}" onclick="switchGame('${g.id}')">
+          <div class="done-chip-date">${g.date}</div>
+          <div class="done-chip-score">🇯🇵 ${sc.jp}－${sc.opp} ${g.flag}</div>
+          <div class="done-chip-vs">vs ${g.opp.length>6?g.opp.slice(0,5)+'…':g.opp}</div>
+        </div>`;
+      }).join('')}</div>
+    </div>`;
+  }else{
+    doneArea.innerHTML='';
+  }
+  // 未確定試合は通常タブ
+  const tabsEl=document.getElementById('gameTabs');
+  tabsEl.innerHTML=pendingGames.map(g=>{
+    return `<div class="tab ${g.id===currentGame?'active':''}" onclick="switchGame('${g.id}')">
+      <span class="tab-flag">${g.flag}</span>
       <div class="tab-date">${g.date}</div>
       <div class="tab-vs">vs ${g.opp.length>6?g.opp.slice(0,5)+'…':g.opp}</div>
     </div>`;
   }).join('');
+  tabsEl.style.display=pendingGames.length>0?'':'none';
 }
 
 // ── Match Card ──
