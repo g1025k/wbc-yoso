@@ -1063,7 +1063,8 @@ async function saveEditGame(){
   const sub2=sub||opp.toUpperCase();
   const subEncoded=sub2+'|'+section;
   try{
-    await sbFetch(`custom_games?id=eq.${_editingGameId}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({date,time:timeVal||g.time,opp,flag,sub:subEncoded})});
+    const updated=await sbFetch(`custom_games?id=eq.${_editingGameId}`,{method:'PATCH',prefer:'return=representation',body:JSON.stringify({date,time:timeVal||g.time,opp,flag,sub:subEncoded})});
+    if(!updated||!updated.length){showToastError('更新に失敗しました（データが保存されませんでした）');return;}
     g.date=date;
     g.time=timeVal||g.time;
     g.opp=opp;
@@ -1270,6 +1271,13 @@ async function boardDeleteAll(){
   if(!isAdmin)startPolling();
   initPresence();
 })();
+document.addEventListener('visibilitychange',async()=>{
+  if(document.visibilityState==='visible'){
+    await loadCustomGames();
+    await loadAllActualScores();
+    renderDeadlineBadge();renderFormArea();renderTabs();renderMatchCard();
+  }
+});
 </script>
 </body>
 </html>
