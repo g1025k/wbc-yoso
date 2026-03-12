@@ -1063,8 +1063,7 @@ async function saveEditGame(){
   const sub2=sub||opp.toUpperCase();
   const subEncoded=sub2+'|'+section;
   try{
-    const updated=await sbFetch(`custom_games?id=eq.${_editingGameId}`,{method:'PATCH',prefer:'return=representation',body:JSON.stringify({date,time:timeVal||g.time,opp,flag,sub:subEncoded})});
-    if(!updated||!updated.length){showToastError('更新に失敗しました（データが保存されませんでした）');return;}
+    await sbFetch('custom_games',{method:'POST',prefer:'resolution=merge-duplicates,return=minimal',body:JSON.stringify({id:_editingGameId,date,time:timeVal||g.time,opp,flag,sub:subEncoded,open_iso:g.open.toISOString(),deadline_iso:g.deadline.toISOString()})});
     g.date=date;
     g.time=timeVal||g.time;
     g.opp=opp;
