@@ -855,6 +855,7 @@ function renderAdminLoginArea(){
       </div>`).join('');
     const savedInputs={};
     for(const id of['ag_flag','ag_opp','ag_date','ag_time','ag_sub','ag_section','ag_dl']){const f=document.getElementById(id);if(f)savedInputs[id]=f.value;}
+    for(const g of GAMES){const f=document.getElementById('dl_'+g.id);if(f)savedInputs['dl_'+g.id]=f.value;}
     el.innerHTML=`
       <div style="margin:20px 16px 0;padding:16px;border:1px solid rgba(245,194,0,.25);border-radius:14px;background:rgba(245,194,0,.05);">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
@@ -1016,8 +1017,10 @@ async function toggleEditAllowed(id,current){
 // ── Edit Game Modal ──
 let _editingGameId=null;
 function openEditGameModal(id){
+  if(document.getElementById('editGameModal').style.display!=='none')return;
   const g=GAMES.find(x=>x.id===id);
   if(!g||!g.custom)return;
+  stopPolling();
   _editingGameId=id;
   document.getElementById('eg_flag').value=g.flag||'';
   document.getElementById('eg_opp').value=g.opp||'';
@@ -1046,6 +1049,7 @@ function openEditGameModal(id){
 function closeEditGameModal(){
   document.getElementById('editGameModal').style.display='none';
   _editingGameId=null;
+  if(!isAdmin)startPolling();
 }
 async function saveEditGame(){
   const g=GAMES.find(x=>x.id===_editingGameId);
@@ -1063,7 +1067,7 @@ async function saveEditGame(){
   const sub2=sub||opp.toUpperCase();
   const subEncoded=sub2+'|'+section;
   try{
-    await sbFetch('custom_games',{method:'POST',prefer:'resolution=merge-duplicates,return=minimal',body:JSON.stringify({id:_editingGameId,date,time:timeVal||g.time,opp,flag,sub:subEncoded,open_iso:g.open.toISOString(),deadline_iso:g.deadline.toISOString()})});
+    await sbFetch(`custom_games?id=eq.${_editingGameId}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({date,time:timeVal||g.time,opp,flag,sub:subEncoded})});
     g.date=date;
     g.time=timeVal||g.time;
     g.opp=opp;
