@@ -344,9 +344,9 @@ const PASSWORD='maru';
 let currentGame='g0', isAdmin=false, countdownTimer=null, _pollTimers=[];
 let _allActualScores={}, _expandedGames=new Set();
 function autoSwitchToOpenGame(){const cur=GAMES.find(x=>x.id===currentGame);if(!cur||isOpen(cur))return;const openGame=GAMES.find(isOpen);if(openGame){currentGame=openGame.id;renderTabs();renderMatchCard();}}
-function startPolling(){stopPolling();_pollTimers.push(setInterval(async()=>{await loadCustomGames();await loadAllActualScores();autoSwitchToOpenGame();renderDeadlineBadge();renderFormArea();renderTabs();},10000),setInterval(async()=>{loadPredictions(true);},30000),setInterval(async()=>{await renderBoard();},20000));}
+function startPolling(){stopPolling();_pollTimers.push(setInterval(async()=>{await loadCustomGames();await loadAllActualScores();autoSwitchToOpenGame();renderDeadlineBadge();renderFormArea();renderTabs();renderMatchCard();},10000),setInterval(async()=>{loadPredictions(true);},30000),setInterval(async()=>{await renderBoard();},20000));}
 function stopPolling(){_pollTimers.forEach(clearInterval);_pollTimers=[];}
-async function manualReload(){await loadCustomGames();autoSwitchToOpenGame();renderDeadlineBadge();renderFormArea();await loadPredictions();showToast('✅ 更新しました');}
+async function manualReload(){await loadCustomGames();autoSwitchToOpenGame();renderDeadlineBadge();renderFormArea();renderTabs();renderMatchCard();await loadPredictions();showToast('✅ 更新しました');}
 const _seenPredIds={};
 function getDeadline(game){return game.deadline;}
 function toLocalDatetimeValue(d){const pad=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;}
