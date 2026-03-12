@@ -479,8 +479,9 @@ function renderDeadlineBadge(){
 
 // ── Tabs ──
 function renderTabs(){
-  const doneGames=GAMES.filter(g=>!!_allActualScores[g.id]);
-  const pendingGames=GAMES.filter(g=>!_allActualScores[g.id]);
+  // 確定スコア（jp/oppが両方セットされている）のみdone扱い
+  const doneGames=GAMES.filter(g=>{const s=_allActualScores[g.id];return s&&s.jp!=null&&s.opp!=null;});
+  const pendingGames=GAMES.filter(g=>{const s=_allActualScores[g.id];return !s||s.jp==null||s.opp==null;});
   // 確定スコアあり試合をまとめて表示
   const doneArea=document.getElementById('doneGamesArea');
   if(doneGames.length>0){
@@ -662,29 +663,60 @@ async function renderActualScoreArea(preds){
   const actual=await loadActualScore();
   const g=GAMES.find(x=>x.id===currentGame);
   const oppFlag=g?g.flag:'';
+  const hasConfirmed=actual&&actual.jp!=null&&actual.opp!=null;
+  const hasInterim=actual&&actual.interim_jp!=null&&actual.interim_opp!=null;
   if(!isAdmin){
-    el.innerHTML=actual?`
-      <div class="actual-section" style="margin:0 16px 16px;">
+    let html='';
+    if(hasConfirmed){
+      html=`<div class="actual-section" style="margin:0 16px 16px;">
         <div class="actual-title">確定スコア</div>
         <div class="actual-result">
           <div class="actual-result-score">🇯🇵 ${actual.jp} — ${actual.opp} ${oppFlag}</div>
           <div class="actual-result-label">試合結果</div>
         </div>
-      </div>`:'';
+      </div>`;
+    } else if(hasInterim){
+      html=`<div class="actual-section" style="margin:0 16px 16px;">
+        <div class="actual-title">🔴 試合経過</div>
+        <div class="actual-result">
+          <div class="actual-result-score">🇯🇵 ${actual.interim_jp} — ${actual.interim_opp} ${oppFlag}</div>
+          <div class="actual-result-label">リアルタイムスコア（試合中）</div>
+        </div>
+      </div>`;
+    }
+    el.innerHTML=html;
     return;
   }
+  // 管理者ビュー
   el.innerHTML=`
     <div class="actual-section" style="margin:0 16px 16px;">
-      <div class="actual-title">実際のスコアを入力</div>
-      ${actual?`<div class="actual-result" style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <div class="actual-title">🔴 経過スコア（試合中）</div>
+      ${hasInterim?`<div class="actual-result" style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <div><div class="actual-result-score">🇯🇵 ${actual.interim_jp} — ${actual.interim_opp} ${oppFlag}</div><div class="actual-result-label">現在の経過スコア</div></div>
+        <div style="display:flex;gap:6px;">
+          <button onclick="confirmInterimAsActual()" style="background:linear-gradient(135deg,#4CAF50,#45a049);border:none;border-radius:8px;padding:6px 10px;color:white;font-size:11px;font-family:'Noto Sans JP',sans-serif;cursor:pointer;">👑 確定スコアにする</button>
+          <button onclick="resetInterimScore()" style="background:none;border:1px solid rgba(255,100,100,.4);border-radius:8px;padding:6px 10px;color:#ff8899;font-size:11px;font-family:'Noto Sans JP',sans-serif;cursor:pointer;">🗑️ リセット</button>
+        </div>
+      </div>`:''}
+      <div class="actual-score-row">
+        <span class="score-label">🇯🇵 日本</span>
+        <input class="score-inp" id="interimJp" type="number" min="0" max="30" inputmode="numeric" value="${hasInterim?actual.interim_jp:''}">
+        <span class="score-dash">—</span>
+        <input class="score-inp" id="interimOpp" type="number" min="0" max="30" inputmode="numeric" value="${hasInterim?actual.interim_opp:''}">
+      </div>
+      <button class="auto-crown-btn" style="background:linear-gradient(135deg,#e74c3c,#c0392b);" onclick="saveInterimScore()">😭 経過スコアを保存して絶対に外れの予想を残念にする</button>
+    </div>
+    <div class="actual-section" style="margin:0 16px 16px;">
+      <div class="actual-title">確定スコア</div>
+      ${hasConfirmed?`<div class="actual-result" style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
         <div><div class="actual-result-score">🇯🇵 ${actual.jp} — ${actual.opp} ${oppFlag}</div><div class="actual-result-label">現在の登録スコア</div></div>
         <button onclick="resetActualScore()" style="background:none;border:1px solid rgba(255,100,100,.4);border-radius:8px;padding:6px 12px;color:#ff8899;font-size:11px;font-family:'Noto Sans JP',sans-serif;cursor:pointer;">🗑️ リセット</button>
       </div>`:''}
       <div class="actual-score-row">
         <span class="score-label">🇯🇵 日本</span>
-        <input class="score-inp" id="actualJp" type="number" min="0" max="30" inputmode="numeric" value="${actual?actual.jp:''}">
+        <input class="score-inp" id="actualJp" type="number" min="0" max="30" inputmode="numeric" value="${hasConfirmed?actual.jp:''}">
         <span class="score-dash">—</span>
-        <input class="score-inp" id="actualOpp" type="number" min="0" max="30" inputmode="numeric" value="${actual?actual.opp:''}">
+        <input class="score-inp" id="actualOpp" type="number" min="0" max="30" inputmode="numeric" value="${hasConfirmed?actual.opp:''}">
       </div>
       <button class="auto-crown-btn" onclick="saveActualScore()">👑 スコアを確定して正解者に王冠をつける</button>
     </div>`;
@@ -715,14 +747,90 @@ async function saveActualScore(){
 }
 
 async function resetActualScore(){
-  if(!confirm('スコアをリセットしますか？全員の王冠も外れます。'))return;
+  if(!confirm('確定スコアをリセットしますか？全員の王冠も外れます。'))return;
   try{
-    await sbFetch(`actual_scores?game_id=eq.${currentGame}`,{method:'DELETE'});
+    const existing=await sbFetch(`actual_scores?game_id=eq.${currentGame}`);
+    const hasInterim=existing&&existing.length>0&&existing[0].interim_jp!=null;
+    if(hasInterim){
+      // 経過スコアは残してjp/oppだけクリア
+      await sbFetch(`actual_scores?game_id=eq.${currentGame}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({jp:null,opp:null})});
+    }else{
+      await sbFetch(`actual_scores?game_id=eq.${currentGame}`,{method:'DELETE'});
+    }
     const preds=await sbFetch(`predictions?game_id=eq.${currentGame}`);
     for(const p of preds){
       await sbFetch(`predictions?id=eq.${p.id}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({is_winner:false,is_loser:false})});
     }
     showToast('リセットしました');
+    await loadAllActualScores();
+    renderTabs();
+    await loadPredictions();
+  }catch(e){showToastError('リセットに失敗しました');}
+}
+
+// DB migration required:
+// ALTER TABLE actual_scores ADD COLUMN IF NOT EXISTS interim_jp integer;
+// ALTER TABLE actual_scores ADD COLUMN IF NOT EXISTS interim_opp integer;
+// ALTER TABLE actual_scores ALTER COLUMN jp DROP NOT NULL;
+// ALTER TABLE actual_scores ALTER COLUMN opp DROP NOT NULL;
+
+async function saveInterimScore(){
+  const jp=document.getElementById('interimJp')?.value;
+  const opp=document.getElementById('interimOpp')?.value;
+  if(jp===''||opp===''){showToastError('経過スコアを入力してください');return;}
+  const jpN=parseInt(jp),oppN=parseInt(opp);
+  try{
+    const existing=await sbFetch(`actual_scores?game_id=eq.${currentGame}`);
+    if(existing&&existing.length>0){
+      await sbFetch(`actual_scores?game_id=eq.${currentGame}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({interim_jp:jpN,interim_opp:oppN})});
+    }else{
+      await sbFetch('actual_scores',{method:'POST',prefer:'return=minimal',body:JSON.stringify({game_id:currentGame,interim_jp:jpN,interim_opp:oppN})});
+    }
+    // 経過スコアで絶対に一致しない予想（jp<現在点 or opp<現在点）を残念にする
+    const preds=await sbFetch(`predictions?game_id=eq.${currentGame}`);
+    let count=0;
+    for(const p of preds){
+      if(p.jp<jpN||p.opp<oppN){
+        await sbFetch(`predictions?id=eq.${p.id}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({is_loser:true})});
+        count++;
+      }
+    }
+    showToast(`😭 ${count}件の予想を残念にしました`);
+    await loadAllActualScores();
+    renderTabs();
+    await loadPredictions();
+  }catch(e){console.error(e);showToastError('保存に失敗しました: '+e.message);}
+}
+
+async function confirmInterimAsActual(){
+  try{
+    const actual=await loadActualScore();
+    if(!actual||actual.interim_jp==null){showToastError('経過スコアがありません');return;}
+    const jpN=actual.interim_jp,oppN=actual.interim_opp;
+    await sbFetch(`actual_scores?game_id=eq.${currentGame}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({jp:jpN,opp:oppN,interim_jp:null,interim_opp:null})});
+    const preds=await sbFetch(`predictions?game_id=eq.${currentGame}`);
+    for(const p of preds){
+      const correct=p.jp===jpN&&p.opp===oppN;
+      await sbFetch(`predictions?id=eq.${p.id}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({is_winner:correct,is_loser:!correct})});
+    }
+    showToast('👑 確定スコアにして正解者に王冠をつけました！');
+    await loadAllActualScores();
+    renderTabs();
+    await loadPredictions();
+  }catch(e){console.error(e);showToastError('保存に失敗しました: '+e.message);}
+}
+
+async function resetInterimScore(){
+  if(!confirm('経過スコアをリセットしますか？経過スコアで残念になった予想も解除されます。'))return;
+  try{
+    await sbFetch(`actual_scores?game_id=eq.${currentGame}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({interim_jp:null,interim_opp:null})});
+    const preds=await sbFetch(`predictions?game_id=eq.${currentGame}`);
+    for(const p of preds){
+      if(!p.is_winner){
+        await sbFetch(`predictions?id=eq.${p.id}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({is_loser:false})});
+      }
+    }
+    showToast('経過スコアをリセットしました');
     await loadAllActualScores();
     renderTabs();
     await loadPredictions();
