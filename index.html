@@ -1020,6 +1020,7 @@ function openEditGameModal(id){
   if(document.getElementById('editGameModal').style.display!=='none')return;
   const g=GAMES.find(x=>x.id===id);
   if(!g||!g.custom)return;
+  stopPolling();
   _editingGameId=id;
   document.getElementById('eg_flag').value=g.flag||'';
   document.getElementById('eg_opp').value=g.opp||'';
@@ -1048,6 +1049,7 @@ function openEditGameModal(id){
 function closeEditGameModal(){
   document.getElementById('editGameModal').style.display='none';
   _editingGameId=null;
+  if(!isAdmin)startPolling();
 }
 async function saveEditGame(){
   const g=GAMES.find(x=>x.id===_editingGameId);
