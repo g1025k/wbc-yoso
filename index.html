@@ -605,7 +605,7 @@ async function loadPredictions(notify=false){
     }
     _seenPredIds[currentGame]=new Set((rows||[]).map(r=>r.id));
     const actual=_allActualScores[currentGame];
-    const isCollapsed=!!actual&&!_expandedGames.has(currentGame);
+    const isCollapsed=!!actual&&actual.jp!=null&&actual.opp!=null&&!_expandedGames.has(currentGame);
     if(!isAdmin){renderDeadlineBadge();renderFormArea();}
     renderActualScoreArea(rows||[]);
     if(isCollapsed){
