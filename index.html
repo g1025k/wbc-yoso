@@ -306,6 +306,15 @@ body{background:var(--navy);color:var(--white);font-family:'Noto Sans JP',sans-s
 <div id="editGameModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeEditGameModal()">
   <div class="modal-box" style="width:100%;max-width:400px;">
     <div style="font-size:14px;font-weight:700;color:var(--gold);margin-bottom:14px;">🏟️ 試合情報を編集</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">ホームチーム（省略時: 🇯🇵 日本）</div>
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <input id="eg_home_flag" placeholder="🇯🇵" maxlength="4" style="width:52px;text-align:center;font-size:18px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:#fff;padding:7px 6px;font-family:'Noto Sans JP',sans-serif;">
+      <input id="eg_home_name" placeholder="日本" style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:#fff;padding:7px 10px;font-size:13px;font-family:'Noto Sans JP',sans-serif;">
+    </div>
+    <div style="margin-bottom:8px;">
+      <input id="eg_home_sub" placeholder="SAMURAI JAPAN（英語・省略可）" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:#fff;padding:7px 10px;font-size:12px;font-family:'Noto Sans JP',sans-serif;">
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">アウェイチーム</div>
     <div style="display:flex;gap:8px;margin-bottom:8px;">
       <input id="eg_flag" placeholder="🏳️" maxlength="4" style="width:52px;text-align:center;font-size:18px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:#fff;padding:7px 6px;font-family:'Noto Sans JP',sans-serif;">
       <input id="eg_opp" placeholder="対戦相手（日本語）" style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:#fff;padding:7px 10px;font-size:13px;font-family:'Noto Sans JP',sans-serif;">
@@ -351,7 +360,7 @@ const _seenPredIds={};
 function getDeadline(game){return game.deadline;}
 function toLocalDatetimeValue(d){const pad=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;}
 async function saveDeadline(gameId){const val=document.getElementById('dl_'+gameId)?.value;if(!val){showToastError('日時を選択してください');return;}const isoStr=new Date(val).toISOString();const g=GAMES.find(x=>x.id===gameId);if(!g)return;try{const existing=await sbFetch(`custom_games?id=eq.${gameId}`);if(existing&&existing.length>0){await sbFetch(`custom_games?id=eq.${gameId}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({deadline_iso:isoStr})});}else{await sbFetch('custom_games',{method:'POST',prefer:'return=minimal',body:JSON.stringify({id:gameId,date:g.date,time:g.time,opp:g.opp,flag:g.flag||'',sub:(g.sub||'')+'|'+(g.section_label||'WBC 一次ラウンド'),open_iso:g.open.toISOString(),deadline_iso:isoStr})});}}catch(e){showToastError('⚠️ 締切のサーバー保存に失敗しました（他ユーザーに反映されません）');return;}g.deadline=new Date(isoStr);if(isOpen(g)){currentGame=gameId;renderTabs();renderMatchCard();}renderDeadlineBadge();renderFormArea();renderAdminLoginArea();showToast('✅ 締切を更新しました');}
-async function loadCustomGames(){try{const rows=await sbFetch('custom_games');if(rows){rows.forEach(g=>{const existing=GAMES.find(x=>x.id===g.id);if(!existing){const parts=(g.sub||'').split('|');const sub=parts[0];const section_label=parts[1]||'WBC 一次ラウンド';GAMES.push({id:g.id,date:g.date,time:g.time,opp:g.opp,flag:g.flag,sub,section_label,open:new Date(g.open_iso),deadline:new Date(g.deadline_iso),custom:true});}else{const parts=(g.sub||'').split('|');const sub=parts[0];const section_label=parts[1]||'WBC 一次ラウンド';if(g.deadline_iso)existing.deadline=new Date(g.deadline_iso);if(g.opp)existing.opp=g.opp;if(g.flag)existing.flag=g.flag;if(sub)existing.sub=sub;if(section_label)existing.section_label=section_label;if(g.date)existing.date=g.date;if(g.time)existing.time=g.time;}});}}catch(e){}}
+async function loadCustomGames(){try{const rows=await sbFetch('custom_games');if(rows){rows.forEach(g=>{const existing=GAMES.find(x=>x.id===g.id);const parts=(g.sub||'').split('|');const sub=parts[0];const section_label=parts[1]||'WBC 一次ラウンド';const home_flag=parts[2]||'🇯🇵';const home_name=parts[3]||'日本';const home_sub=parts[4]||'SAMURAI JAPAN';if(!existing){GAMES.push({id:g.id,date:g.date,time:g.time,opp:g.opp,flag:g.flag,sub,section_label,home_flag,home_name,home_sub,open:new Date(g.open_iso),deadline:new Date(g.deadline_iso),custom:true});}else{if(g.deadline_iso)existing.deadline=new Date(g.deadline_iso);if(g.opp)existing.opp=g.opp;if(g.flag)existing.flag=g.flag;if(sub)existing.sub=sub;if(section_label)existing.section_label=section_label;if(home_flag)existing.home_flag=home_flag;if(home_name)existing.home_name=home_name;if(home_sub)existing.home_sub=home_sub;if(g.date)existing.date=g.date;if(g.time)existing.time=g.time;}});}}catch(e){}}
 async function addCustomGame(){
   const flag=(document.getElementById('ag_flag')?.value||'').trim();
   const opp=(document.getElementById('ag_opp')?.value||'').trim();
@@ -360,6 +369,9 @@ async function addCustomGame(){
   const timeVal=(document.getElementById('ag_time')?.value||'19:00').trim();
   const dateVal=(document.getElementById('ag_date')?.value||'').trim();
   const dlVal=document.getElementById('ag_dl')?.value;
+  const homeFlag=(document.getElementById('ag_home_flag')?.value||'').trim();
+  const homeName=(document.getElementById('ag_home_name')?.value||'').trim();
+  const homeSub=(document.getElementById('ag_home_sub')?.value||'').trim();
   if(!opp||!dlVal){showToastError('対戦相手と締切日時は必須です');return;}
   const dl=new Date(dlVal);
   const days=['日','月','火','水','木','金','土'];
@@ -369,13 +381,16 @@ async function addCustomGame(){
   else{date=`${dl.getMonth()+1}/${dl.getDate()}(${days[dl.getDay()]})`;};
   const flag2=flag||'🏳️';
   const sub2=sub||opp.toUpperCase();
-  // section_label is encoded in sub field as "SUB|SECTION_LABEL"
-  const subEncoded=sub2+'|'+sectionLabel;
+  const homeFlag2=homeFlag||'🇯🇵';
+  const homeName2=homeName||'日本';
+  const homeSub2=homeSub||'SAMURAI JAPAN';
+  // section_label and home team info encoded in sub field as "SUB|SECTION_LABEL|HOME_FLAG|HOME_NAME|HOME_SUB"
+  const subEncoded=sub2+'|'+sectionLabel+'|'+homeFlag2+'|'+homeName2+'|'+homeSub2;
   const open_iso=new Date('2026-03-01T00:00:00+09:00').toISOString();
   const deadline_iso=dl.toISOString();
   try{
     await sbFetch('custom_games',{method:'POST',prefer:'return=minimal',body:JSON.stringify({id,date,time:timeVal,opp,flag:flag2,sub:subEncoded,open_iso,deadline_iso})});
-    GAMES.push({id,date,time:timeVal,opp,flag:flag2,sub:sub2,section_label:sectionLabel,open:new Date(open_iso),deadline:dl,custom:true});
+    GAMES.push({id,date,time:timeVal,opp,flag:flag2,sub:sub2,section_label:sectionLabel,home_flag:homeFlag2,home_name:homeName2,home_sub:homeSub2,open:new Date(open_iso),deadline:dl,custom:true});
     currentGame=id;
     renderTabs();renderMatchCard();renderDeadlineBadge();renderFormArea();renderAdminLoginArea();loadPredictions();
     showToast('✅ 試合を追加しました');
@@ -491,7 +506,7 @@ function renderTabs(){
         const sc=_allActualScores[g.id];
         return `<div class="done-chip ${g.id===currentGame?'active':''}" onclick="switchGame('${g.id}')">
           <div class="done-chip-date">${g.date}</div>
-          <div class="done-chip-score">🇯🇵 ${sc.jp}－${sc.opp} ${g.flag}</div>
+          <div class="done-chip-score">${g.home_flag||'🇯🇵'} ${sc.jp}－${sc.opp} ${g.flag}</div>
           <div class="done-chip-vs">vs ${g.opp.length>6?g.opp.slice(0,5)+'…':g.opp}</div>
         </div>`;
       }).join('')}</div>
@@ -514,9 +529,10 @@ function renderTabs(){
 // ── Match Card ──
 function renderMatchCard(){
   const g=GAMES.find(x=>x.id===currentGame);
+  const hf=g.home_flag||'🇯🇵';const hn=g.home_name||'日本';const hs=g.home_sub||'SAMURAI JAPAN';
   document.getElementById('matchCard').innerHTML=`
     <div class="match-info">
-      <div class="team"><div class="team-flag">🇯🇵</div><div class="team-name">日本</div><div class="team-sub">SAMURAI JAPAN</div></div>
+      <div class="team"><div class="team-flag">${hf}</div><div class="team-name">${hn}</div><div class="team-sub">${hs}</div></div>
       <div class="vs-block">
         <div class="match-date-small">${g.date} ${g.time}〜</div>
         <div class="vs-text">VS</div>
@@ -536,13 +552,14 @@ function renderFormArea(){
   const g=GAMES.find(x=>x.id===currentGame);
   const el=document.getElementById('formArea');
   const open=isOpen(g);
+  const hf=g.home_flag||'🇯🇵';const hn=g.home_name||'日本';
   if(open){
     el.innerHTML=`
       <div class="add-section">
         <div class="add-title">予想を登録</div>
         <div class="form-row"><input class="inp" id="nameInp" placeholder="あなたの名前" maxlength="20" oninput="localStorage.setItem('wbc_username',this.value)"></div>
         <div class="score-row">
-          <span class="score-label">🇯🇵 日本</span>
+          <span class="score-label">${hf} ${hn}</span>
           <input class="score-inp" id="scoreJp" type="number" min="0" max="30" placeholder="0" inputmode="numeric">
           <span class="score-dash">—</span>
           <input class="score-inp" id="scoreOpp" type="number" min="0" max="30" placeholder="0" inputmode="numeric">
@@ -566,12 +583,13 @@ function showAdminLogin(){
   const g=GAMES.find(x=>x.id===currentGame);
   const open=isOpen(g);
   const el=document.getElementById('formArea');
+  const hf2=g.home_flag||'🇯🇵';const hn2=g.home_name||'日本';
   const formHtml=open?`
     <div class="add-section">
       <div class="add-title">予想を登録</div>
       <div class="form-row"><input class="inp" id="nameInp" placeholder="あなたの名前" maxlength="20" oninput="localStorage.setItem('wbc_username',this.value)"></div>
       <div class="score-row">
-        <span class="score-label">🇯🇵 日本</span>
+        <span class="score-label">${hf2} ${hn2}</span>
         <input class="score-inp" id="scoreJp" type="number" min="0" max="30" placeholder="0" inputmode="numeric">
         <span class="score-dash">—</span>
         <input class="score-inp" id="scoreOpp" type="number" min="0" max="30" placeholder="0" inputmode="numeric">
@@ -649,9 +667,10 @@ function toggleGameExpand(gameId){
 function renderCollapsedGameSummary(preds,actual){
   const el=document.getElementById('predList');
   const g=GAMES.find(x=>x.id===currentGame);
+  const chf=g?(g.home_flag||'🇯🇵'):'🇯🇵';
   const winners=preds.filter(p=>p.is_winner).length;
   el.innerHTML=`<div class="game-done-card">
-    <div class="game-done-score">🇯🇵 ${actual.jp} — ${actual.opp} ${g?g.flag:''}</div>
+    <div class="game-done-score">${chf} ${actual.jp} — ${actual.opp} ${g?g.flag:''}</div>
     <div class="game-done-stats">${preds.length}人参加・${winners}人正解</div>
     <button class="game-expand-btn" onclick="toggleGameExpand('${currentGame}')">📋 予想一覧を見る</button>
   </div>`;
@@ -671,7 +690,7 @@ async function renderActualScoreArea(preds){
       html=`<div class="actual-section" style="margin:0 16px 16px;">
         <div class="actual-title">確定スコア</div>
         <div class="actual-result">
-          <div class="actual-result-score">🇯🇵 ${actual.jp} — ${actual.opp} ${oppFlag}</div>
+          <div class="actual-result-score">${g?g.home_flag||'🇯🇵':'🇯🇵'} ${actual.jp} — ${actual.opp} ${oppFlag}</div>
           <div class="actual-result-label">試合結果</div>
         </div>
       </div>`;
@@ -679,7 +698,7 @@ async function renderActualScoreArea(preds){
       html=`<div class="actual-section" style="margin:0 16px 16px;">
         <div class="actual-title">🔴 試合経過</div>
         <div class="actual-result">
-          <div class="actual-result-score">🇯🇵 ${actual.interim_jp} — ${actual.interim_opp} ${oppFlag}</div>
+          <div class="actual-result-score">${g?g.home_flag||'🇯🇵':'🇯🇵'} ${actual.interim_jp} — ${actual.interim_opp} ${oppFlag}</div>
           <div class="actual-result-label">リアルタイムスコア（試合中）</div>
         </div>
       </div>`;
@@ -692,14 +711,14 @@ async function renderActualScoreArea(preds){
     <div class="actual-section" style="margin:0 16px 16px;">
       <div class="actual-title">🔴 経過スコア（試合中）</div>
       ${hasInterim?`<div class="actual-result" style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
-        <div><div class="actual-result-score">🇯🇵 ${actual.interim_jp} — ${actual.interim_opp} ${oppFlag}</div><div class="actual-result-label">現在の経過スコア</div></div>
+        <div><div class="actual-result-score">${g?g.home_flag||'🇯🇵':'🇯🇵'} ${actual.interim_jp} — ${actual.interim_opp} ${oppFlag}</div><div class="actual-result-label">現在の経過スコア</div></div>
         <div style="display:flex;gap:6px;">
           <button onclick="confirmInterimAsActual()" style="background:linear-gradient(135deg,#4CAF50,#45a049);border:none;border-radius:8px;padding:6px 10px;color:white;font-size:11px;font-family:'Noto Sans JP',sans-serif;cursor:pointer;">👑 確定スコアにする</button>
           <button onclick="resetInterimScore()" style="background:none;border:1px solid rgba(255,100,100,.4);border-radius:8px;padding:6px 10px;color:#ff8899;font-size:11px;font-family:'Noto Sans JP',sans-serif;cursor:pointer;">🗑️ リセット</button>
         </div>
       </div>`:''}
       <div class="actual-score-row">
-        <span class="score-label">🇯🇵 日本</span>
+        <span class="score-label">${g?g.home_flag||'🇯🇵':'🇯🇵'} ${g?g.home_name||'日本':'日本'}</span>
         <input class="score-inp" id="interimJp" type="number" min="0" max="30" inputmode="numeric" value="${hasInterim?actual.interim_jp:''}">
         <span class="score-dash">—</span>
         <input class="score-inp" id="interimOpp" type="number" min="0" max="30" inputmode="numeric" value="${hasInterim?actual.interim_opp:''}">
@@ -709,11 +728,11 @@ async function renderActualScoreArea(preds){
     <div class="actual-section" style="margin:0 16px 16px;">
       <div class="actual-title">確定スコア</div>
       ${hasConfirmed?`<div class="actual-result" style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
-        <div><div class="actual-result-score">🇯🇵 ${actual.jp} — ${actual.opp} ${oppFlag}</div><div class="actual-result-label">現在の登録スコア</div></div>
+        <div><div class="actual-result-score">${g?g.home_flag||'🇯🇵':'🇯🇵'} ${actual.jp} — ${actual.opp} ${oppFlag}</div><div class="actual-result-label">現在の登録スコア</div></div>
         <button onclick="resetActualScore()" style="background:none;border:1px solid rgba(255,100,100,.4);border-radius:8px;padding:6px 12px;color:#ff8899;font-size:11px;font-family:'Noto Sans JP',sans-serif;cursor:pointer;">🗑️ リセット</button>
       </div>`:''}
       <div class="actual-score-row">
-        <span class="score-label">🇯🇵 日本</span>
+        <span class="score-label">${g?g.home_flag||'🇯🇵':'🇯🇵'} ${g?g.home_name||'日本':'日本'}</span>
         <input class="score-inp" id="actualJp" type="number" min="0" max="30" inputmode="numeric" value="${hasConfirmed?actual.jp:''}">
         <span class="score-dash">—</span>
         <input class="score-inp" id="actualOpp" type="number" min="0" max="30" inputmode="numeric" value="${hasConfirmed?actual.opp:''}">
@@ -841,6 +860,8 @@ async function resetInterimScore(){
 function renderStats(preds){
   const el=document.getElementById('statsArea');
   if(!preds||preds.length===0){el.innerHTML='';return;}
+  const cg=GAMES.find(x=>x.id===currentGame);
+  const shf=cg?(cg.home_flag||'🇯🇵'):'🇯🇵';const shn=cg?(cg.home_name||'日本'):'日本';
   const win=preds.filter(p=>p.jp>p.opp).length;
   const lose=preds.filter(p=>p.jp<p.opp).length;
   const draw=preds.filter(p=>p.jp===p.opp).length;
@@ -850,7 +871,7 @@ function renderStats(preds){
     <div class="stats-section">
       <div class="stats-title">📊 みんなの予想集計</div>
       <div class="stats-row">
-        <div class="stats-label">🇯🇵 日本勝ち</div>
+        <div class="stats-label">${shf} ${shn}勝ち</div>
         <div class="stats-bar-wrap"><div class="stats-bar win-bar" style="width:${pct(win)}%"></div></div>
         <div class="stats-count">${win}</div>
         <div class="stats-pct">${pct(win)}%</div>
@@ -880,7 +901,8 @@ function renderList(preds){
   el.innerHTML=sorted.map(p=>{
     const init=[...p.name][0].toUpperCase();
     let win='';
-    if(p.jp>p.opp) win='<span class="pred-win win">日本勝ち予想 🎉</span>';
+    const lhf=game?(game.home_flag||'🇯🇵'):'🇯🇵';const lhn=game?(game.home_name||'日本'):'日本';
+    if(p.jp>p.opp) win=`<span class="pred-win win">${lhn}勝ち予想 🎉</span>`;
     else if(p.jp<p.opp) win='<span class="pred-win lose">相手勝ち予想</span>';
     else win='<span class="pred-win draw">引き分け予想</span>';
     const d=new Date(p.created_at);
@@ -962,7 +984,7 @@ function renderAdminLoginArea(){
         ${g.custom?`<div style="display:flex;gap:4px;"><button onclick="openEditGameModal('${g.id}')" style="background:rgba(245,194,0,.15);border:1px solid rgba(245,194,0,.35);border-radius:6px;color:var(--gold);font-size:11px;padding:3px 8px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">編集</button><button onclick="deleteCustomGame('${g.id}')" style="background:rgba(255,80,80,.2);border:1px solid rgba(255,80,80,.4);border-radius:6px;color:#ff8080;font-size:11px;padding:3px 8px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">削除</button></div>`:'<span style="font-size:10px;color:var(--muted);">固定</span>'}
       </div>`).join('');
     const savedInputs={};
-    for(const id of['ag_flag','ag_opp','ag_date','ag_time','ag_sub','ag_section','ag_dl']){const f=document.getElementById(id);if(f)savedInputs[id]=f.value;}
+    for(const id of['ag_flag','ag_opp','ag_date','ag_time','ag_sub','ag_section','ag_dl','ag_home_flag','ag_home_name','ag_home_sub']){const f=document.getElementById(id);if(f)savedInputs[id]=f.value;}
     for(const g of GAMES){const f=document.getElementById('dl_'+g.id);if(f)savedInputs['dl_'+g.id]=f.value;}
     el.innerHTML=`
       <div style="margin:20px 16px 0;padding:16px;border:1px solid rgba(245,194,0,.25);border-radius:14px;background:rgba(245,194,0,.05);">
@@ -976,6 +998,15 @@ function renderAdminLoginArea(){
           ${gameList}
           <div style="margin-top:12px;">
             <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">▼ 試合を追加</div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">ホームチーム（省略時: 🇯🇵 日本）</div>
+            <div style="display:flex;gap:6px;margin-bottom:6px;">
+              <input id="ag_home_flag" placeholder="🇯🇵" maxlength="4" style="width:48px;text-align:center;font-size:16px;${inp}">
+              <input id="ag_home_name" placeholder="日本" style="flex:1;${inp}">
+            </div>
+            <div style="margin-bottom:6px;">
+              <input id="ag_home_sub" placeholder="SAMURAI JAPAN（英語・省略可）" style="width:100%;box-sizing:border-box;${inp}">
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">アウェイチーム</div>
             <div style="display:flex;gap:6px;margin-bottom:6px;">
               <input id="ag_flag" placeholder="🇨🇿" maxlength="4" style="width:48px;text-align:center;font-size:16px;${inp}">
               <input id="ag_opp" placeholder="対戦相手（日本語）" style="flex:1;${inp}">
@@ -1134,6 +1165,9 @@ function openEditGameModal(id){
   document.getElementById('eg_opp').value=g.opp||'';
   document.getElementById('eg_sub').value=g.sub||'';
   document.getElementById('eg_section').value=g.section_label||'WBC 一次ラウンド';
+  document.getElementById('eg_home_flag').value=g.home_flag||'';
+  document.getElementById('eg_home_name').value=g.home_name||'';
+  document.getElementById('eg_home_sub').value=g.home_sub||'';
   document.getElementById('eg_time').value=g.time||'';
   // Parse date from "M/D(曜)" format to yyyy-MM-dd
   try{
@@ -1168,12 +1202,15 @@ async function saveEditGame(){
   const section=(document.getElementById('eg_section')?.value||'').trim()||'WBC 一次ラウンド';
   const timeVal=(document.getElementById('eg_time')?.value||'').trim();
   const dateVal=document.getElementById('eg_date')?.value;
+  const eHomeFlag=(document.getElementById('eg_home_flag')?.value||'').trim()||'🇯🇵';
+  const eHomeName=(document.getElementById('eg_home_name')?.value||'').trim()||'日本';
+  const eHomeSub=(document.getElementById('eg_home_sub')?.value||'').trim()||'SAMURAI JAPAN';
   if(!opp){showToastError('対戦相手名は必須です');return;}
   const days=['日','月','火','水','木','金','土'];
   let date=g.date;
   if(dateVal){const gd=new Date(dateVal+'T00:00:00');date=`${gd.getMonth()+1}/${gd.getDate()}(${days[gd.getDay()]})`;}
   const sub2=sub||opp.toUpperCase();
-  const subEncoded=sub2+'|'+section;
+  const subEncoded=sub2+'|'+section+'|'+eHomeFlag+'|'+eHomeName+'|'+eHomeSub;
   try{
     await sbFetch(`custom_games?id=eq.${_editingGameId}`,{method:'PATCH',prefer:'return=minimal',body:JSON.stringify({date,time:timeVal||g.time,opp,flag,sub:subEncoded})});
     g.date=date;
@@ -1182,6 +1219,9 @@ async function saveEditGame(){
     g.flag=flag;
     g.sub=sub2;
     g.section_label=section;
+    g.home_flag=eHomeFlag;
+    g.home_name=eHomeName;
+    g.home_sub=eHomeSub;
     closeEditGameModal();
     renderTabs();renderMatchCard();renderDeadlineBadge();renderAdminLoginArea();
     showToast('✅ 試合情報を更新しました');
