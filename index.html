@@ -901,6 +901,7 @@ function renderList(preds){
   el.innerHTML=sorted.map(p=>{
     const init=[...p.name][0].toUpperCase();
     let win='';
+    const game=GAMES.find(g=>g.id===p.game_id);
     const lhf=game?(game.home_flag||'🇯🇵'):'🇯🇵';const lhn=game?(game.home_name||'日本'):'日本';
     if(p.jp>p.opp) win=`<span class="pred-win win">${lhn}勝ち予想 🎉</span>`;
     else if(p.jp<p.opp) win='<span class="pred-win lose">相手勝ち予想</span>';
@@ -914,7 +915,6 @@ function renderList(preds){
     const missBtn=isAdmin&&!isWinner?`<button class="miss-btn ${isLoser?'missed':''}" onclick="toggleLoser('${p.id}',${isLoser})" title="${isLoser?'外れを外す':'外れにする'}">😭</button>`:'';
     const myName=localStorage.getItem('wbc_username')||'';
     const isOwner=myName&&myName===p.name;
-    const game=GAMES.find(g=>g.id===p.game_id);
     const gameOpen=game?new Date()<getDeadline(game):false;
     const editAllowed=!!p.edit_allowed;
     const canOwnerEdit=isOwner&&(gameOpen||editAllowed);
